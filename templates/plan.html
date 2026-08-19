@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>作業計画：休暇申請の承認フロー多段化（2026-08-05）</title>
+<link rel="stylesheet" href="/assets/report.css">
+<!--
+  使い方: 実装に着手する前に、対応内容・修正予定・懸念点をユーザーに提示して承認を得るときに使う。
+  複製して reports/<プロジェクト>/<日付>_<名前>.html にリネームし、対応内容・修正内容・懸念点を実情に合わせて書き換える。
+  修正内容はファイル名・行番号の列挙ではなく、画面・機能の単位で div.change を1件につき1つ書く。「いま」「こう直す」の2つを上下に並べ、関数名・行番号・差分などの実装の話は書かない。
+  懸念点は1件ぶんを div.item で囲み、その直下に div.qa を置く（h3 は div.item の直下、p.why は div.qa の中）。末尾に残すのは着手可否を聞く1問だけにする（これも div.item で囲む）。
+  重さのある懸念点は div.item high／mid／low で色帯を付ける。
+  data-qa-id は複製したら中身に合わせて付け直し、一度公開したら変えないこと。
+-->
+</head>
+<body>
+<div class="wrap">
+  <p class="back"><a href="./">← レポート一覧</a></p>
+  <header>
+    <p class="eyebrow">作業計画 ／ kintai-doc ／ 2026-08-05</p>
+    <h1>休暇申請の承認フローを二段階（一次・最終）に変更する</h1>
+    <p class="lede">
+      現在は申請者の直属上長のみが承認する一段階フローだが、5日以上の連続休暇は部門長の最終承認も必要にする。
+      着手前に対応内容・修正内容・懸念点を確認してほしい。
+    </p>
+  </header>
+
+  <section>
+    <h2>対応内容</h2>
+    <ul>
+      <li>休暇申請テーブルに承認段階（一次・最終）と各段階の承認者・承認日時を保持できるようにする。</li>
+      <li>5日以上の連続休暇のみ、一次承認後に部門長への最終承認依頼が自動で飛ぶようにする。</li>
+      <li>申請一覧画面・通知メールの文言を、承認段階が分かる表示に変更する。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>修正内容</h2>
+    <!-- 対象（画面・機能）1 件につき div.change を 1 つ。「いま」と「こう直す」を上下に並べる。
+         ファイル名・行番号・関数名・差分は書かない。 -->
+
+    <div class="change">
+      <h3>休暇申請の承認</h3>
+      <span class="tag">いま</span>
+      <span class="from">直属上長のみが承認する一段階フローになっている</span>
+      <span class="arrow" aria-hidden="true">↓</span>
+      <span class="tag to">こう直す</span>
+      <span class="to">5日以上の連続休暇は、一次承認のあとに部門長の最終承認を必須にする</span>
+    </div>
+
+    <div class="change">
+      <h3>申請一覧画面</h3>
+      <span class="tag">いま</span>
+      <span class="from">承認が何段階目かが画面から分からない</span>
+      <span class="arrow" aria-hidden="true">↓</span>
+      <span class="tag to">こう直す</span>
+      <span class="to">一覧に承認段階を示す列を追加する</span>
+    </div>
+
+    <div class="change">
+      <h3>承認完了メール</h3>
+      <span class="tag">いま</span>
+      <span class="from">承認段階に関わらず同じ文言になっている</span>
+      <span class="arrow" aria-hidden="true">↓</span>
+      <span class="tag to">こう直す</span>
+      <span class="to">一次承認／最終承認で文言を出し分けるようにする</span>
+    </div>
+
+    <div class="change">
+      <h3>既存の承認待ち申請</h3>
+      <span class="tag">いま</span>
+      <span class="from">新しい承認段階の情報を持っていない</span>
+      <span class="arrow" aria-hidden="true">↓</span>
+      <span class="tag to">こう直す</span>
+      <span class="to">移行スクリプトで一次承認扱いに変換できるようにする（懸念点1と対応）</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>懸念点</h2>
+
+    <div class="item high">
+      <h3>既存の申請中データとの整合</h3>
+      <p>
+        リリース時点で承認待ちの申請が <code>approval_stage</code> を持たないため、
+        移行スクリプトなしでは一次承認扱いにできず承認処理が止まる可能性がある。
+      </p>
+      <div class="qa" data-qa-id="plan-risk-1" data-question="既存申請中データの移行方針">
+        <p class="why">承認処理が止まらないよう、どちらの手立てを取るか着手前に決めておきたい。</p>
+        <label><input type="radio" name="choice" value="移行スクリプトを用意する">移行スクリプトを用意し、リリース時に一次承認扱いへ変換する</label>
+        <label><input type="radio" name="choice" value="リリース前に既存申請を処理しきる">リリース前に運用側で既存の承認待ちを処理しきる</label>
+        <textarea name="note" placeholder="補足（任意）"></textarea>
+      </div>
+    </div>
+
+    <div class="item">
+      <h3>部門長が未設定の部署がある</h3>
+      <p>
+        組織マスタ上、一部の部署で部門長が未設定のままになっている。該当部署の申請者が5日以上の休暇を
+        申請した場合、最終承認の宛先が決まらない。
+      </p>
+      <div class="qa" data-qa-id="plan-risk-2" data-question="部門長未設定部署の扱い">
+        <p class="why">最終承認の宛先が決まらないケースへの対応を先に固めておきたい。</p>
+        <label><input type="radio" name="choice" value="部門長設定を先に済ませる">リリース前に組織マスタの部門長設定を済ませる</label>
+        <label><input type="radio" name="choice" value="未設定時は一次承認のみで完結">未設定の部署は一次承認のみで完結させる（暫定）</label>
+        <textarea name="note" placeholder="補足（任意）"></textarea>
+      </div>
+    </div>
+
+    <div class="item low">
+      <h3>通知メール文言の変更範囲</h3>
+      <p>承認完了メール以外にも、リマインドメール・却下メールに同様の段階表示を入れるかは未確定。</p>
+      <div class="qa" data-qa-id="plan-risk-3" data-question="他メールへの段階表示の反映範囲">
+        <p class="why">対応範囲によって今回の工数が変わるため、着手前に決めておきたい。</p>
+        <label><input type="radio" name="choice" value="今回まとめて反映">リマインド・却下メールにも今回まとめて反映する</label>
+        <label><input type="radio" name="choice" value="承認完了メールのみ今回対応">承認完了メールのみ今回対応し、他は別タスクにする</label>
+        <textarea name="note" placeholder="補足（任意）"></textarea>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>着手可否</h2>
+    <div class="item">
+      <h3>この計画で進めてよいか</h3>
+      <div class="qa" data-qa-id="plan-approve" data-question="この計画で着手してよいか">
+        <p class="why">上記の懸念点3件への回答も合わせて確認したうえで着手する。</p>
+        <label><input type="radio" name="choice" value="この計画で進める">この計画で進める</label>
+        <label><input type="radio" name="choice" value="修正が必要">修正が必要</label>
+        <textarea name="note" placeholder="補足（任意）"></textarea>
+      </div>
+    </div>
+  </section>
+
+  <p class="foot">
+    回答は <code>reports/&lt;プロジェクト&gt;/&lt;日付&gt;_&lt;名前&gt;.answers.json</code> に保存される。同じ設問は何度でも答え直せる（最後の回答が残る）。
+  </p>
+</div>
+<script src="/assets/answers.js"></script>
+</body>
+</html>

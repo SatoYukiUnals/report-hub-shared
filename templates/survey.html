@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>調査：発注一覧の表示遅延の原因（2026-08-05）</title>
+<link rel="stylesheet" href="/assets/report.css">
+<!--
+  使い方: 原因調査・影響範囲調査の結果を報告するときに使う。
+  複製して reports/<プロジェクト>/<日付>_<名前>.html にリネームし、結論・根拠・比較案を実情に合わせて書き換える。
+  結論は先頭に置き、根拠は後段に積む構成を崩さないこと。
+  調査項目ごとに判断を仰ぐ箇所があれば、その項目を div.item で囲み直下に div.qa を置く（h3 は div.item の直下、p.why は div.qa の中）。
+  末尾の方針確認も div.item で囲む。「確かめた観点」は何を見たかだけを短い語で並べる（件数・秒数・手順・コマンド・テスト出力は書かない）。修正内容の表がある場合は div.change のカードに直す。
+  data-qa-id は複製したら中身に合わせて付け直し、一度公開したら変えないこと。
+-->
+</head>
+<body>
+<div class="wrap">
+  <p class="back"><a href="./">← レポート一覧</a></p>
+  <header>
+    <p class="eyebrow">調査結果 ／ ordering_ops ／ 2026-08-05</p>
+    <h1>発注一覧画面の表示遅延は、明細取得APIの都度JOINが原因</h1>
+    <p class="lede">
+      発注一覧画面（<code>/orders</code>）の初期表示が平均4.2秒かかる件を調査した。
+      原因はAPI側のクエリ構成にあり、キャッシュ導入かクエリ簡素化のどちらかで解消できる。
+    </p>
+  </header>
+
+  <section>
+    <p>
+      <code>GET /api/orders</code> が発注1件ごとに取引先マスタ・商品マスタ・在庫テーブルを個別JOINしており、
+      一覧50件表示のたびに150回以上のJOINクエリが発行されている。取引先マスタは更新頻度が低く、
+      キャッシュ導入だけでも大幅な改善が見込める。
+    </p>
+  </section>
+
+  <section>
+    <h2>根拠</h2>
+    <div class="card scroll">
+      <table>
+        <thead>
+          <tr><th>該当箇所</th><th>内容</th><th>実測値</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>api/orders/service.py:64</code></td>
+            <td>発注1件ごとに取引先マスタを個別 <code>SELECT</code></td>
+            <td class="num">150 クエリ／回</td>
+          </tr>
+          <tr>
+            <td><code>api/orders/service.py:71</code></td>
+            <td>商品マスタも同様に個別 <code>SELECT</code></td>
+            <td class="num">150 クエリ／回</td>
+          </tr>
+          <tr>
+            <td><code>logs/slow_query.log</code></td>
+            <td>1クエリあたり平均<span class="was">8ms</span>だが件数が多く合計で支配的</td>
+            <td class="num">合計 3.1秒</td>
+          </tr>
+          <tr>
+            <td>APM（New Relic）</td>
+            <td><code>/api/orders</code> のレスポンスタイム</td>
+            <td class="num">p95 4.2秒</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>案A／案B の比較</h2>
+    <div class="card scroll">
+      <table>
+        <thead>
+          <tr><th>案</th><th>内容</th><th>利点</th><th>欠点</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>案A</td>
+            <td>取引先・商品マスタをRedisにキャッシュし、都度JOINをキャッシュ参照に置き換える</td>
+            <td>実装が小さく、既存クエリ構成を大きく変えない</td>
+            <td>マスタ更新時のキャッシュ無効化を別途実装する必要がある</td>
+          </tr>
+          <tr>
+            <td>案B</td>
+            <td>一覧取得クエリを1本のJOINにまとめ、都度クエリを廃止する</td>
+            <td>キャッシュ層が不要で構成がシンプルになる</td>
+            <td>クエリの書き換え範囲が大きく、既存のテストも作り直しが必要</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>確かめた観点</h2>
+    <!-- 何を見たかだけを短く並べる。結果の数字・手順・コマンド・テスト出力は書かない。
+         別のエージェントにレビューを出した場合は、その観点も 1 つとして入れる。 -->
+    <ul class="aspects">
+      <li>都度JOINの発行回数とレスポンスタイムの内訳</li>
+      <li>スロークエリログとAPM計測値の突き合わせ</li>
+      <li>別エージェントのレビュー指摘の反映</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>方針の確認</h2>
+    <div class="item">
+      <h3>案A（キャッシュ導入）と案B（クエリ簡素化）のどちらで進めるか</h3>
+      <div class="qa" data-qa-id="survey-choice" data-question="発注一覧の遅延解消の方針">
+        <p class="why">案Aは着手が早いが恒久対応ではない。案Bは恒久対応だが工数が大きい。両方を段階的に行うことも可能。</p>
+        <label><input type="radio" name="choice" value="案A">案A（キャッシュ導入）</label>
+        <label><input type="radio" name="choice" value="案B">案B（クエリ簡素化）</label>
+        <label><input type="radio" name="choice" value="案Aを先に着手しBへ移行">案Aを先に着手し、後日Bへ移行する</label>
+        <textarea name="note" placeholder="補足（任意）"></textarea>
+      </div>
+    </div>
+  </section>
+
+  <p class="foot">
+    回答は <code>reports/&lt;プロジェクト&gt;/&lt;日付&gt;_&lt;名前&gt;.answers.json</code> に保存される。同じ設問は何度でも答え直せる（最後の回答が残る）。
+  </p>
+</div>
+<script src="/assets/answers.js"></script>
+</body>
+</html>

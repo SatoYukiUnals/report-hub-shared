@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>確認事項：通知バッチの再送方式（2026-08-05）</title>
+<link rel="stylesheet" href="/assets/report.css">
+<!--
+  使い方: 実装や調査の途中で判断が必要な事項をユーザーに確認するときに使う。
+  複製して reports/<プロジェクト>/<日付>_<名前>.html にリネームし、背景説明と設問を実情に合わせて書き換える。
+  設問は増減してよい（最低1つ）。設問ごとに div.item で囲み、その直下に div.qa を置く
+  （h3 は div.item の直下、p.why は div.qa の中）。
+  data-qa-id は複製したら中身に合わせて付け直し、一度公開したら変えないこと。
+-->
+</head>
+<body>
+<div class="wrap">
+  <p class="back"><a href="./">← レポート一覧</a></p>
+  <header>
+    <p class="eyebrow">確認事項 ／ ordering_ops ／ 2026-08-05</p>
+    <h1>通知バッチの再送方式と件数上限について、決めてほしいこと</h1>
+    <p class="lede">
+      失敗した通知ジョブの再送ロジックを実装する前に、方式を選んでおきたい。
+      3点とも実装方針に直結するため、着手前に回答をもらいたい。
+    </p>
+  </header>
+
+  <section>
+    <p>
+      対象は <code>batch/notify_worker.py</code> の再送処理。現状は失敗したジョブを即座に破棄しており、
+      一時的な障害（DB接続断など）でも再試行なしに欠落が発生している。再送を入れる場合、方式によって
+      キューの構成やリトライ間隔の実装が変わるため、着手前に3点を確認したい。
+    </p>
+  </section>
+
+  <section>
+    <h2>設問</h2>
+
+    <div class="item">
+      <h3>再送方式は固定間隔・指数バックオフ・手動再送のどれにするか</h3>
+      <div class="qa" data-qa-id="qa-1" data-question="再送方式をどれにするか">
+        <p class="why">
+          固定間隔は実装が簡単だが障害の輻輳時に負荷が集中しやすい。指数バックオフは実装がやや複雑だが
+          再送の分散に強い。手動再送は最も安全だが運用負荷がかかる。
+        </p>
+        <label><input type="radio" name="choice" value="固定間隔">固定間隔（例: 5分おきに最大3回）</label>
+        <label><input type="radio" name="choice" value="指数バックオフ">指数バックオフ（1分→2分→4分…）</label>
+        <label><input type="radio" name="choice" value="手動再送">自動再送はせず、失敗一覧から手動で再送する</label>
+        <textarea name="note" placeholder="補足（任意）"></textarea>
+      </div>
+    </div>
+
+    <div class="item">
+      <h3>再送の最大回数は何回までとするか</h3>
+      <div class="qa" data-qa-id="qa-2" data-question="再送の最大回数の上限">
+        <p class="why">
+          上限が無いと恒久的な障害（宛先メールアドレス不正など）を延々と再送し続けてキューを圧迫する。
+          上限を超えた分は失敗一覧に残し、手動対応に回す想定。
+        </p>
+        <label><input type="radio" name="choice" value="3回">3回</label>
+        <label><input type="radio" name="choice" value="5回">5回</label>
+        <label><input type="radio" name="choice" value="上限なし">上限なし（監視で検知して手動停止する）</label>
+        <textarea name="note" placeholder="補足（任意）"></textarea>
+      </div>
+    </div>
+
+    <div class="item">
+      <h3>再送待ちの通知を画面上「送信中」として利用者に見せるか</h3>
+      <div class="qa" data-qa-id="qa-3" data-question="再送中の通知を利用者へ表示するか">
+        <p class="why">
+          見せる場合は通知一覧に状態カラムを追加する必要があり、画面側の改修が発生する。
+          見せない場合は再送が完了するまで利用者からは何も見えない。
+        </p>
+        <label><input type="radio" name="choice" value="表示する">表示する（状態カラムを追加）</label>
+        <label><input type="radio" name="choice" value="表示しない">表示しない（完了時のみ反映）</label>
+        <textarea name="note" placeholder="補足（任意）"></textarea>
+      </div>
+    </div>
+  </section>
+
+  <p class="foot">
+    回答は <code>reports/&lt;プロジェクト&gt;/&lt;日付&gt;_&lt;名前&gt;.answers.json</code> に保存される。同じ設問は何度でも答え直せる（最後の回答が残る）。
+  </p>
+</div>
+<script src="/assets/answers.js"></script>
+</body>
+</html>

@@ -1,0 +1,175 @@
+/* レポート一覧（受信箱型）。
+ *
+ * 構成
+ *   1. 土台
+ *   2. 二段組（左＝絞り込み／右＝ストリーム）
+ *   3. 道具立て（検索・タブ）
+ *   4. レポート 1 行
+ *   5. 完了の折りたたみ・脚注
+ *
+ * プロジェクトをまたいだ 1 本のリストに、未回答 → 新着 → 更新順で並べる。
+ * プロジェクトは見出しではなく左の絞り込みに置く（縦の階層を作らない）。
+ */
+@import "/assets/tokens.css";
+
+/* ------------------------------------------------------------ 1. 土台 */
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--body); line-height: 1.7;
+}
+.wrap {
+  max-width: 78rem; margin: 0 auto;
+  padding: 3rem clamp(1.25rem, 4vw, 3rem) 5rem;
+  display: flex; flex-direction: column; gap: 2rem;
+}
+h1 {
+  font-family: var(--display); font-size: clamp(1.6rem, 4vw, 2.1rem);
+  line-height: 1.25; margin: 0 0 .5rem; letter-spacing: .01em;
+}
+.lede { margin: 0; color: var(--ink-soft); max-width: 62ch; font-size: .92rem; }
+a { color: var(--accent); text-decoration: none; }
+code {
+  font-family: var(--mono); font-size: .85em;
+  background: var(--accent-soft); padding: .1em .35em; border-radius: 3px;
+}
+
+/* ------------------------------------------------------------ 2. 二段組 */
+.inbox { display: grid; grid-template-columns: 15rem 1fr; gap: 2.5rem; align-items: start; }
+@media (max-width: 60rem) { .inbox { grid-template-columns: 1fr; gap: 1.5rem; } }
+
+/* 共通サイドバー（/assets/nav.css）がある画面は横幅がその分減るので、
+ * 一覧側の絞り込み列と余白を少し詰めて 3 カラムでも窮屈にならないようにする。 */
+body.has-nav .inbox { grid-template-columns: 13rem 1fr; gap: 1.75rem; }
+
+.side { display: flex; flex-direction: column; gap: 1.5rem; position: sticky; top: 2rem; min-width: 0; }
+
+/* 左肩の大きな数字。いま何件答え待ちか */
+.side-total { display: flex; flex-direction: column; border-top: 2px solid var(--ink); padding-top: .7rem; }
+.side-num {
+  font-family: var(--display); font-size: 2.6rem; line-height: 1;
+  font-variant-numeric: tabular-nums; color: var(--crit);
+}
+.side-total.is-clear .side-num { color: var(--good); }
+.side-label { font-size: .8rem; color: var(--ink-soft); letter-spacing: .1em; }
+.side-when { font-size: .76rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; margin-top: .4rem; }
+
+/* プロジェクトの絞り込み */
+.filters { display: flex; flex-direction: column; }
+.filters-head {
+  font-size: .72rem; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink-soft); padding-bottom: .4rem; border-bottom: 1px solid var(--line);
+}
+.f {
+  font: inherit; font-size: .88rem; text-align: left; cursor: pointer;
+  background: none; border: 0; border-bottom: 1px solid var(--line);
+  padding: .5rem .2rem; color: var(--ink);
+  display: flex; align-items: baseline; gap: .5rem;
+}
+.f:hover { background: var(--card); }
+.f.is-on { font-weight: 700; box-shadow: inset 3px 0 0 var(--accent); padding-left: .6rem; }
+.f .n { margin-left: auto; font-size: .78rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.f .n.is-open { color: var(--crit); font-weight: 700; }
+.f:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.side-foot { font-size: .78rem; color: var(--ink-soft); display: flex; flex-wrap: wrap; gap: .3rem .8rem; margin: 0; }
+.side-foot .head { width: 100%; letter-spacing: .14em; text-transform: uppercase; font-size: .72rem; }
+
+/* ------------------------------------------------------------ 3. 道具立て */
+.stream { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+.toolbar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.q {
+  flex: 1 1 16rem; font: inherit; font-size: .9rem; padding: .5rem .8rem;
+  background: var(--card); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 4px;
+}
+.q::placeholder { color: var(--ink-soft); }
+.q:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tabs { display: flex; }
+.tab {
+  font: inherit; font-size: .85rem; cursor: pointer; background: none;
+  border: 1px solid var(--line); border-right: 0; padding: .45rem .9rem; color: var(--ink-soft);
+}
+.tab:first-child { border-radius: 4px 0 0 4px; }
+.tab:last-child { border-right: 1px solid var(--line); border-radius: 0 4px 4px 0; }
+.tab:hover { background: var(--card); }
+.tab.is-on { background: var(--ink); border-color: var(--ink); color: var(--paper); font-weight: 700; }
+.tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ------------------------------------------------------------ 4. レポート 1 行 */
+.rows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.row { border-bottom: 1px solid var(--line); }
+.row[hidden] { display: none; }
+.row-link {
+  display: grid; grid-template-columns: .6rem 1fr auto auto; gap: 0 1rem;
+  align-items: baseline; padding: .95rem .8rem .95rem .6rem; color: inherit;
+}
+.row-link:hover { background: var(--card); }
+.row.is-cursor .row-link { background: var(--card); box-shadow: inset 0 0 0 1px var(--line); }
+.row-link:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* 未回答の印。左端の点だけで拾えるようにする */
+.dot { width: .5rem; height: .5rem; border-radius: 50%; background: transparent; align-self: center; }
+.row.is-open .dot { background: var(--crit); }
+.row.is-new .dot { background: var(--accent); }
+.row.is-open.is-new .dot { background: var(--crit); box-shadow: 0 0 0 2px var(--accent-soft); }
+
+.row-main { grid-column: 2; min-width: 0; display: flex; flex-direction: column; gap: .1rem; }
+.row-title {
+  font-family: var(--display); font-size: 1.02rem; line-height: 1.4;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.row.is-open .row-title { font-weight: 700; }
+.row-sub { font-size: .78rem; color: var(--ink-soft); }
+.row-sub .kind + .kind::before { content: "・"; }
+.row-state { font-size: .78rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.row-state.is-open { color: var(--crit); font-weight: 700; }
+.row-state.is-done { color: var(--good); }
+.row-age {
+  font-size: .78rem; color: var(--ink-soft); font-variant-numeric: tabular-nums;
+  white-space: nowrap; min-width: 4rem; text-align: right;
+}
+/* 未回答のまま日が経っているもの。3 日超で色、7 日超で行の左に帯 */
+.row.is-stale .row-age { color: var(--crit); }
+.row.is-rotten { box-shadow: inset 3px 0 0 var(--crit); }
+.row.is-rotten .row-link { padding-left: .9rem; }
+
+/* 狭い画面では題名を 1 行使い、状態と経過をその下に回す */
+@media (max-width: 40rem) {
+  .row-link { grid-template-columns: .6rem 1fr auto; row-gap: .25rem; }
+  .row-main { grid-column: 2 / -1; }
+  .row-state { grid-column: 2; grid-row: 2; }
+  .row-age { grid-column: 3; grid-row: 2; }
+}
+
+/* ------------------------------------------------------------ 5. 完了・脚注 */
+.empty { color: var(--ink-soft); font-size: .9rem; padding: 2rem .6rem; margin: 0; }
+details.done { margin-top: .5rem; }
+details.done summary {
+  cursor: pointer; color: var(--ink-soft); font-size: .85rem; padding: .5rem .2rem;
+  list-style: none; display: flex; align-items: baseline; gap: .4rem;
+}
+details.done summary::before { content: "▸"; font-size: .7rem; }
+details.done[open] summary::before { content: "▾"; }
+details.done summary:hover { color: var(--ink); }
+details.done .rows { opacity: .8; }
+details.done .row-title { font-family: var(--body); font-size: .92rem; }
+
+/* --------------------------------------------- 6. 狭い画面（上書きなので末尾）
+   左の列が縦に積み上がるとレポートが遠くなる。プロジェクトの絞り込みは
+   横並びのチップにして 1 行に収める。 */
+@media (max-width: 60rem) {
+  .side { position: static; gap: 1rem; }
+  .filters { flex-direction: row; gap: .4rem; overflow-x: auto; padding-bottom: .3rem; }
+  .filters-head { display: none; }
+  .f {
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: .25rem .8rem; white-space: nowrap; background: var(--card);
+  }
+  .f.is-on {
+    box-shadow: none; padding-left: .8rem;
+    background: var(--ink); border-color: var(--ink); color: var(--paper);
+  }
+  .f .n { margin-left: .4rem; }
+  .f.is-on .n { color: inherit; }
+}

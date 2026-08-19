@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WBS 更新の承認</title>
+<link rel="stylesheet" href="/assets/report.css">
+<!--
+  使い方: wbs-ops で WBS を更新（ステータス変更・日付変更・担当変更・削除）する前に、内容を承認してもらうときに使う。
+  複製先: reports/<プロジェクト>/<日付>_<名前>.html
+  書き換え箇所: ヘッダのエンドポイント・件数・取得時刻／更新の一覧／削除を伴う場合の子孫件数／全体承認フォーム。
+  表の行に対応する確認事項は div.qa.inline のまま行の直下に置く（今の形を変えない）。
+  削除を伴う懸念点と最終確認は、それぞれ div.item（削除は high）で囲み、その直下に div.qa を置く
+  （h3 は div.item の直下、p.why は div.qa の中）。
+  data-qa-id は複製したら中身に合わせて付け直す（change-1, change-2, ... delete-ok 等）。一度公開したら変えない。
+-->
+</head>
+<body>
+<div class="wrap">
+  <p class="back"><a href="./">← レポート一覧</a></p>
+  <header>
+    <p class="eyebrow">WBS 更新の承認 ／ 対象: 受発注さん・WBS管理ソフト開発 ／ 取得 2026-08-05 14:30</p>
+    <h1>3件の更新を実行してよいか確認する</h1>
+    <p class="lede">
+      wbs-ops で PATCH /agent/tasks/&lt;id&gt;/ を計3件呼ぶ前の承認。
+      取得時刻は 2026-08-05 14:30。承認までに WBS 側の状態が変わっている可能性があるため、実行直前に再取得して差分がないか確かめる。
+    </p>
+  </header>
+
+  <section>
+    <h2>更新の一覧</h2>
+    <div class="card scroll">
+      <table>
+        <thead>
+          <tr><th>WBS No</th><th>タスク</th><th>項目</th><th>現在</th><th>変更後</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="num">1.10.5</td><td>TMRV</td><td>status</td><td><span class="was">InProgress</span></td><td><span class="now">Done</span></td></tr>
+          <tr><td class="num">1.13.5</td><td>TMRV</td><td>予定日</td><td><span class="was">2026-07-13〜07-13</span></td><td><span class="now">2026-08-06〜08-07</span></td></tr>
+          <tr><td class="num">2.4</td><td>WbsEdit保存の一括更新API化</td><td>担当</td><td><span class="was">（なし）</span></td><td><span class="now">佐藤優樹</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="qa inline" data-qa-id="change-1" data-question="1.10.5 TMRV の status を InProgress→Done に変更するか">
+      <b>1.10.5 status → Done</b>
+      <label><input type="radio" name="choice" value="実行する">実行する</label>
+      <label><input type="radio" name="choice" value="除外する">除外する</label>
+      <textarea name="note" placeholder="補足（任意）"></textarea>
+    </div>
+
+    <div class="qa inline" data-qa-id="change-2" data-question="1.13.5 TMRV の予定日を 07-13→08-06/08-07 に変更するか">
+      <b>1.13.5 予定日 → 08-06〜08-07</b>
+      <label><input type="radio" name="choice" value="実行する">実行する</label>
+      <label><input type="radio" name="choice" value="除外する">除外する</label>
+      <textarea name="note" placeholder="補足（任意）"></textarea>
+    </div>
+
+    <div class="qa inline" data-qa-id="change-3" data-question="2.4 の担当を（なし）→佐藤優樹に変更するか">
+      <b>2.4 担当 → 佐藤優樹</b>
+      <label><input type="radio" name="choice" value="実行する">実行する</label>
+      <label><input type="radio" name="choice" value="除外する">除外する</label>
+      <textarea name="note" placeholder="補足（任意）"></textarea>
+    </div>
+  </section>
+
+  <section>
+    <h2>削除を伴う場合</h2>
+    <p class="lede">
+      POST /agent/tasks/bulk-delete/ は cascade で子孫タスクも一緒に論理削除される。対象と子孫件数を確認してから実行すること。
+    </p>
+    <div class="card scroll">
+      <table>
+        <thead>
+          <tr><th>id</th><th>タスク</th><th>WBS No</th><th>作成日時</th><th class="num">子孫の件数</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>07fdb0e1-fe6e-4ecf-a748-c3f61c7e8222</code></td><td>バックエンド実装（Task.created_by・アイデア判定/昇格・子継承・担当/親付替制約・MCP ideas）</td><td class="num">1.1</td><td class="num">2026-07-21 19:04</td><td class="num">0</td></tr>
+          <tr><td><code>77bbc7cf-b4d0-484f-a772-d3afaf8cd06e</code></td><td>アイデアボード（プロジェクト単位のアイデア置き場）</td><td class="num">1</td><td class="num">2026-07-21 19:04</td><td class="num">6</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="item high">
+      <h3>cascade で子孫も論理削除される。取り消せない。</h3>
+      <p>特に「1」は子孫6件を巻き込む。誤って親タスクごと消すと配下の実績・工数記録も一括で見えなくなる。</p>
+      <div class="qa" data-qa-id="delete-ok" data-question="1.1 と 1（子孫6件）の削除を実行してよいか">
+        <p class="why">bulk-delete は取り消せないため、対象を絞ってから実行したい。</p>
+        <label><input type="radio" name="choice" value="両方削除する">両方削除する</label>
+        <label><input type="radio" name="choice" value="1.1のみ削除する">1.1 のみ削除する（子孫を巻き込まない）</label>
+        <label><input type="radio" name="choice" value="削除しない">削除しない</label>
+        <textarea name="note" placeholder="補足（任意）"></textarea>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>最終確認</h2>
+    <div class="item">
+      <h3>一覧のとおり実行してよいか</h3>
+      <div class="qa" data-qa-id="change-all" data-question="一覧のとおり実行してよいか">
+        <p class="why">上記の更新3件・削除の可否をまとめて承認する。個別に除外したい行は各行の設問で回答済みであること。</p>
+        <label><input type="radio" name="choice" value="一覧のとおり実行する">一覧のとおり実行する</label>
+        <label><input type="radio" name="choice" value="実行しない">実行しない</label>
+        <textarea name="note" placeholder="補足（任意）"></textarea>
+      </div>
+    </div>
+  </section>
+
+  <p class="foot">承認後、AI が wbs-ops で実行し、結果は実施結果レポートに出す。</p>
+</div>
+<script src="/assets/answers.js"></script>
+</body>
+</html>

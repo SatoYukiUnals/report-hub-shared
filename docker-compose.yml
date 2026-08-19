@@ -1,0 +1,27 @@
+# レポート閲覧・回答サーバー（ローカル専用・プロジェクト横断）。
+#
+#   docker compose up -d      起動（http://localhost:5180/）
+#   docker compose down       停止
+#   docker compose logs -f    アクセスログ
+#
+# server.py は標準ライブラリだけで動くため、素の python イメージをそのまま使う（ビルド不要）。
+# 公開は 127.0.0.1 のみ。同じ LAN の他端末からは見えない。
+services:
+  report-hub:
+    image: python:3.12-alpine
+    container_name: report_hub
+    working_dir: /srv
+    command: python -u server.py
+    environment:
+      REPORT_HUB_PORT: "5180"
+      # 回答時刻を日本時間で残す（コンテナの既定は UTC。必要なタイムゾーンに変える）
+      TZ: Asia/Tokyo
+    volumes:
+      # server.py・assets・reports をまとめてマウントする。回答はホスト側に残る
+      - ./:/srv
+      # 成果物ビューア（/d/…）で読むリポジトリ。読み取り専用で足す。
+      # 増やすときはここに 1 行足し、sources/<名前> がそのまま URL になる（例を1行残してある。使わないなら削除してよい）。
+      # - ~/path/to/your-repo:/srv/sources/your-repo:ro
+    ports:
+      - "127.0.0.1:5180:5180"
+    restart: unless-stopped

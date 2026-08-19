@@ -1,0 +1,8 @@
+# 閲覧記録（レポートを開くたびに変わる。共有する意味がない）
+reports/.read.json
+
+# macOS・Python が勝手に作るもの
+.DS_Store
+__pycache__/
+*.pyc
+sources/

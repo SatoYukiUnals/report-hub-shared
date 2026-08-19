@@ -1,0 +1,219 @@
+/* レポート共通のスタイル。テンプレートから <link rel="stylesheet" href="/assets/report.css"> で読む。
+ *
+ * 構成
+ *   1. 配色（/assets/tokens.css を読む。一覧と同じ値を使う）
+ *   2. 土台（本文・見出し・箱）
+ *   3. 表
+ *   4. バッジ（状態を色と形で示す）
+ *   5. 確認事項フォーム（form.qa／assets/answers.js が使う）
+ *   6. 差分・指摘・懸念点の様式
+ */
+
+/* ------------------------------------------------------------ 1. 配色 */
+@import "/assets/tokens.css";
+
+/* ------------------------------------------------------------ 2. 土台 */
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--body); line-height: 1.8;
+}
+/* 読み物として落ち着く幅に収める。表など横に長いものは .scroll に逃がす。
+   本文（.lede と箇条書き）は読みやすさのため行長をさらに抑える。 */
+.wrap {
+  max-width: 92rem; margin: 0 auto;
+  padding: 3rem clamp(1.25rem, 4vw, 3.5rem) 5rem;
+  display: flex; flex-direction: column; gap: 2.5rem;
+}
+.eyebrow {
+  font-size: .72rem; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--ink-soft); margin: 0 0 .5rem;
+}
+h1 {
+  font-family: var(--display); font-size: clamp(1.5rem, 4vw, 2.05rem);
+  line-height: 1.25; text-wrap: balance; margin: 0 0 .75rem;
+}
+h2 {
+  font-family: var(--display); font-size: 1.1rem; margin: 0 0 .25rem;
+  padding-bottom: .5rem; border-bottom: 2px solid var(--line);
+}
+h3 { font-size: .95rem; margin: 0; }
+.lede { margin: 0; color: var(--ink-soft); max-width: 74ch; }
+/* 節の中で確認事項が複数あるときは、広い画面で横に並べる。
+   見出し・本文・表は幅いっぱいのまま（列を作るのは .qa だけ）。 */
+section {
+  display: grid; gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(26rem, 1fr));
+  align-content: start;
+}
+section > :not(.qa), section > .qa.inline { grid-column: 1 / -1; }
+p { margin: 0; }
+ul, ol { margin: 0; padding-left: 1.3rem; display: flex; flex-direction: column; gap: .4rem; max-width: 90ch; }
+a { color: var(--accent); }
+code { font-family: var(--mono); font-size: .85em; background: var(--accent-soft); padding: .1em .35em; border-radius: 3px; }
+pre {
+  font-family: var(--mono); font-size: .82rem; line-height: 1.55; margin: 0;
+  background: var(--card); border: 1px solid var(--line); border-radius: 6px;
+  padding: .9rem 1rem; overflow-x: auto;
+}
+pre code { background: none; padding: 0; font-size: inherit; }
+
+/* プロジェクトのレポート一覧へ戻る（サーバーが /r/<プロジェクト>/ を一覧へ振り向ける） */
+.back { margin: 0 0 .5rem; font-size: .85rem; }
+
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 6px;
+  padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: .6rem;
+}
+/* 表・コード・図はこの箱に入れて、本文が横に伸びないようにする */
+.scroll { overflow-x: auto; }
+.foot { color: var(--ink-soft); font-size: .85rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+
+/* ------------------------------------------------------------ 3. 表 */
+table { border-collapse: collapse; width: 100%; font-size: .89rem; min-width: 34rem; }
+th, td { text-align: left; vertical-align: top; padding: .5rem .7rem; border-bottom: 1px solid var(--line); }
+th {
+  font-size: .74rem; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink-soft); font-weight: 600; white-space: nowrap;
+}
+tbody tr:last-child td { border-bottom: 0; }
+.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.was { color: var(--ink-soft); text-decoration: line-through; }
+.now { font-weight: 700; }
+
+/* ------------------------------------------------------------ 4. バッジ */
+.pill {
+  display: inline-block; font-size: .72rem; font-weight: 700; white-space: nowrap;
+  border: 1px solid currentColor; border-radius: 999px; padding: .08em .6em;
+}
+.pill.new { color: var(--accent); background: var(--accent-soft); }
+.pill.open { color: var(--crit); }
+.pill.done { color: var(--good); }
+.pill.warn { color: var(--warn); }
+.pill.quiet { color: var(--ink-soft); border-color: var(--line); }
+/* 指摘の重さ。High=赤・Mid=橙・Low=灰 */
+.pill.high { color: var(--crit); }
+.pill.mid { color: var(--warn); }
+.pill.low { color: var(--ink-soft); border-color: var(--line); }
+
+/* ------------------------------------------------------------ 5. 確認事項 */
+.qa {
+  background: var(--card); border: 1px solid var(--line); border-radius: 6px;
+  padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: .5rem; margin: 0;
+}
+.qa h3 { font-size: .98rem; }
+.qa .why { color: var(--ink-soft); font-size: .9rem; }
+.qa label { display: flex; gap: .5rem; align-items: flex-start; cursor: pointer; }
+.qa label input { margin-top: .45rem; }
+.qa textarea {
+  width: 100%; min-height: 3.5rem; font: inherit; font-size: .9rem; padding: .5rem .6rem;
+  border: 1px solid var(--line); border-radius: 4px;
+  background: var(--sunk); color: var(--ink); resize: vertical;
+}
+.qa button {
+  align-self: flex-start; font: inherit; font-size: .9rem; padding: .35rem 1.1rem;
+  border: 1px solid var(--accent); border-radius: 4px;
+  background: var(--accent); color: #fff; cursor: pointer;
+}
+.qa button:hover { filter: brightness(1.08); }
+.qa button:disabled { opacity: .5; cursor: default; }
+.qa button:focus-visible, .qa input:focus-visible, .qa textarea:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+/* answers.js が回答後に差し込む行 */
+.qa-status { font-size: .85rem; color: var(--good); font-weight: 600; }
+
+/* 画面末尾の回答バー。設問ごとではなく、ページに 1 つだけ置く（answers.js が差し込む） */
+.qa-bar {
+  position: sticky; bottom: 0; z-index: 10;
+  display: flex; align-items: center; gap: .9rem; flex-wrap: wrap;
+  padding: .75rem clamp(1.25rem, 4vw, 3.5rem);
+  background: var(--card); border-top: 1px solid var(--line);
+  box-shadow: 0 -2px 12px rgb(0 0 0 / .06);
+}
+.qa-bar-count { font-size: .85rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.qa-bar-count.is-open { color: var(--crit); font-weight: 700; }
+.qa-bar-message { font-size: .85rem; color: var(--good); }
+.qa-bar button {
+  margin-left: auto; font: inherit; font-size: .9rem; padding: .4rem 1.4rem;
+  border: 1px solid var(--accent); border-radius: 4px;
+  background: var(--accent); color: #fff; cursor: pointer;
+}
+.qa-bar button:hover { filter: brightness(1.08); }
+.qa-bar button:disabled { opacity: .5; cursor: default; }
+.qa-bar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* 表の行ごとに答えるとき（横並びの小さな選択肢） */
+.qa.inline { flex-direction: row; align-items: center; flex-wrap: wrap; gap: .5rem .9rem; padding: .7rem .9rem; }
+.qa.inline label { align-items: center; }
+.qa.inline label input { margin-top: 0; }
+.qa.inline .qa-status { margin-left: auto; }
+
+/* ------------------------------------------------------------ 6. 指摘・懸念点 */
+.risk { display: flex; flex-direction: column; gap: .3rem; border-left: 3px solid var(--warn); padding: .1rem 0 .1rem .85rem; }
+.risk b { font-size: .93rem; }
+.risk p { color: var(--ink-soft); font-size: .9rem; }
+.risk.high { border-left-color: var(--crit); }
+.risk.low { border-left-color: var(--line); }
+
+/* --------------------------------------------- 7. 1 件ぶんのかたまり（.item）
+ * 指摘・懸念点・調査項目など「1 件」を角丸の枠で囲み、その中に
+ * 内容と、それに対する確認事項を入れる。問いと対象が離れないようにする。 */
+.item {
+  background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  padding: 1.15rem 1.25rem; display: flex; flex-direction: column; gap: .7rem;
+}
+.item > h3 { font-size: 1rem; }
+/* 枠の直下に置いた重さのバッジは、文字幅のまま左に置く（縦並びで伸びないように） */
+.item > .pill { align-self: flex-start; }
+.item > p { color: var(--ink-soft); font-size: .92rem; }
+.item > .bar { margin-bottom: -.2rem; }
+/* 枠の中の指摘は左の帯を持たない（枠自身が区切りになる） */
+.item > .risk { border-left: 0; padding-left: 0; }
+/* 重さのある項目は枠の左を色で示す */
+.item.high { border-left: 4px solid var(--crit); }
+.item.mid { border-left: 4px solid var(--warn); }
+.item.low { border-left: 4px solid var(--line); }
+/* 枠の中の確認事項。地を一段沈めて、答える場所だと分かるようにする */
+.item > .qa {
+  background: var(--sunk); border-radius: 6px;
+  border: 1px solid var(--line); border-left: 3px solid var(--accent);
+}
+.item > .qa textarea { background: var(--card); }
+/* 回答が入ると左の帯が済みの色に変わる（answers.js が .qa-status を差し込む） */
+.item > .qa:has(.qa-status) { border-left-color: var(--good); }
+
+/* --------------------------------------------- 8. 修正内容（.change）
+ * 表で 3 列に並べず、対象 1 件を 1 つの枠にする。狭い画面でも崩れない。 */
+.change {
+  background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  padding: 1.05rem 1.2rem;
+  display: grid; grid-template-columns: auto 1fr; gap: .4rem .9rem; align-items: baseline;
+}
+.change > h3 { grid-column: 1 / -1; font-size: 1rem; margin-bottom: .1rem; }
+.change .tag {
+  font-size: .74rem; letter-spacing: .06em; color: var(--ink-soft); white-space: nowrap;
+}
+.change .from { color: var(--ink-soft); }
+.change .to { font-weight: 700; }
+/* いま → 矢印 → こうした の 3 段。矢印だけで 1 行を使う */
+.change .arrow {
+  grid-column: 1 / -1; color: var(--accent); font-weight: 700;
+  line-height: 1; margin: .15rem 0 .05rem; padding-left: .35rem;
+}
+@media (max-width: 40rem) {
+  .change { grid-template-columns: 1fr; gap: .15rem; }
+  .change .tag { margin-top: .35rem; }
+  .change .arrow { margin: .25rem 0; padding-left: 0; }
+}
+
+/* --------------------------------------------- 9. 確かめた観点（.aspects）
+ * 何を見たかだけを並べる。結果の数字・手順・ログは書かない。 */
+.aspects {
+  display: flex; flex-direction: column; gap: .3rem;
+  list-style: disc; margin: 0; padding-left: 1.3rem; max-width: 90ch;
+}
+
+/* 見出しの脇に件数などを並べる行 */
+.bar { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
+.bar .when { margin-left: auto; color: var(--ink-soft); font-size: .82rem; font-variant-numeric: tabular-nums; }

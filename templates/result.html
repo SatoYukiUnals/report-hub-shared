@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>実施結果：休暇申請の承認フロー多段化（2026-08-05）</title>
+<link rel="stylesheet" href="/assets/report.css">
+<!--
+  使い方: 実装・作業が完了した後に、実施内容・確かめ方・修正内容・残課題をまとめて報告するときに使う。
+  複製して reports/<プロジェクト>/<日付>_<名前>.html にリネームし、中身を実情に合わせて書き換える。
+  実行したコマンドのログ（コマンド列・pytest 出力・ビルドログ）は貼らない。「確認したこと」は日本語の短い箇条書きで、件数・秒数・差分などの具体値を必ず入れる。
+  修正内容はファイル名・行番号の列挙ではなく、画面・機能の単位で「対象（画面・機能）」「いま」「どう直したか」の3列にまとめる。関数名・行番号・差分などの実装の話は書かない。
+  確認事項は末尾にまとめない。問いの対象になっている項目を div.item で囲み、その直下に div.qa を置く。末尾に残すのは全体の可否を聞く1問だけにする。
+  data-qa-id は複製したら中身に合わせて付け直し、一度公開したら変えないこと。
+-->
+</head>
+<body>
+<div class="wrap">
+  <p class="back"><a href="./">← レポート一覧</a></p>
+  <header>
+    <p class="eyebrow">実施結果 ／ kintai-doc ／ 2026-08-05</p>
+    <h1>休暇申請の承認フロー多段化を実装し、テストを通した</h1>
+    <p class="lede">
+      計画レポートで承認済みの内容に沿って、二段階承認フローを実装した。
+      既存申請の移行スクリプトも合わせて用意し、全テストが通ることを確認した。
+    </p>
+  </header>
+
+  <section>
+    <h2>実施した内容</h2>
+    <ul>
+      <li>休暇申請に承認段階を持たせ、5日以上の連続休暇で最終承認ステップへ進むようにした。</li>
+      <li>承認完了メールの文言を段階に応じて出し分け、申請一覧画面に承認段階の列を追加した。</li>
+      <li>リリース時点で承認待ちの既存申請を一次承認扱いへ変換する移行の手立てを用意した。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>修正内容</h2>
+    <!-- 対象（画面・機能）1 件につき div.change を 1 つ。「いま」と「こうした」を上下に並べる。
+         ファイル名・行番号・関数名・差分は書かない。 -->
+
+    <div class="change">
+      <h3>休暇申請の承認</h3>
+      <span class="tag">いま</span>
+      <span class="from">直属上長のみが承認する一段階フローだった</span>
+      <span class="arrow" aria-hidden="true">↓</span>
+      <span class="tag to">こうした</span>
+      <span class="to">5日以上の連続休暇は、一次承認のあとに部門長の最終承認を必須にした</span>
+    </div>
+
+    <div class="change">
+      <h3>申請一覧画面</h3>
+      <span class="tag">いま</span>
+      <span class="from">承認が何段階目かが画面から分からなかった</span>
+      <span class="arrow" aria-hidden="true">↓</span>
+      <span class="tag to">こうした</span>
+      <span class="to">一覧に承認段階を示す列を追加した</span>
+    </div>
+
+    <div class="change">
+      <h3>承認完了メール</h3>
+      <span class="tag">いま</span>
+      <span class="from">承認段階に関わらず同じ文言だった</span>
+      <span class="arrow" aria-hidden="true">↓</span>
+      <span class="tag to">こうした</span>
+      <span class="to">一次承認／最終承認で文言を出し分けるようにした</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>確かめた観点</h2>
+    <!-- 何を見たかだけを短く並べる。結果の数字・手順・コマンド・テスト出力は書かない。
+         別のエージェントにレビューを出した場合は、その観点も 1 つとして入れる。 -->
+    <ul class="aspects">
+      <li>承認段階の分岐（4日・5日・10日）</li>
+      <li>部門長が未設定の部署</li>
+      <li>既存の承認待ち申請の移行</li>
+      <li>メール文言の出し分け</li>
+      <li>申請一覧の表示</li>
+      <li>別エージェントのレビュー指摘の反映</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>残課題</h2>
+    <!-- 1件ぶんを div.item で囲み、その直下に確認事項を置く。判断を仰がない残課題は div.item だけで書く。 -->
+
+    <div class="item high">
+      <h3>部門長が未設定の部署が3部署ある</h3>
+      <p>暫定として一次承認のみで完結させている。組織マスタの設定は運用側での操作が必要。</p>
+      <div class="qa" data-qa-id="result-dept-head" data-question="部門長未設定部署の扱い">
+        <p class="why">暫定のままにするか、設定を済ませてから最終承認を必須にするかを決めたい。</p>
+        <label><input type="radio" name="choice" value="暫定のままにする">当面は一次承認のみで完結させる</label>
+        <label><input type="radio" name="choice" value="設定を済ませる">運用側で部門長設定を済ませてから必須にする</label>
+        <textarea name="note" placeholder="補足（任意）"></textarea>
+      </div>
+    </div>
+
+    <div class="item">
+      <h3>移行の適用が本番でまだ</h3>
+      <p>リリース時に運用担当が実行する必要がある。実行しないと承認待ちの申請が止まる。</p>
+      <div class="qa" data-qa-id="result-migration" data-question="移行の実行者と時期">
+        <p class="why">誰がいつ実行するかを決めておきたい。</p>
+        <label><input type="radio" name="choice" value="リリース当日に運用担当">リリース当日に運用担当が実行する</label>
+        <label><input type="radio" name="choice" value="事前に実行する">リリース前に実行しておく</label>
+        <textarea name="note" placeholder="補足（任意）"></textarea>
+      </div>
+    </div>
+
+    <div class="item low">
+      <h3>リマインド・却下メールへの段階表示は今回の範囲外</h3>
+      <p>別タスクとして起票が必要。今回のリリース自体は妨げない。</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>完了確認</h2>
+    <div class="item">
+      <h3>この内容で完了としてよいか</h3>
+      <div class="qa" data-qa-id="result-done" data-question="この実施結果で完了としてよいか">
+        <p class="why">残課題は運用側の対応が必要なため、別途フォローする前提で完了扱いにできるか確認したい。</p>
+        <label><input type="radio" name="choice" value="完了でよい（WBSをDoneにする）">完了でよい（WBSをDoneにする）</label>
+        <label><input type="radio" name="choice" value="差し戻す">差し戻す</label>
+        <textarea name="note" placeholder="補足（任意）"></textarea>
+      </div>
+    </div>
+  </section>
+
+  <p class="foot">
+    回答は <code>reports/&lt;プロジェクト&gt;/&lt;日付&gt;_&lt;名前&gt;.answers.json</code> に保存される。同じ設問は何度でも答え直せる（最後の回答が残る）。
+  </p>
+</div>
+<script src="/assets/answers.js"></script>
+</body>
+</html>

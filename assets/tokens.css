@@ -1,0 +1,31 @@
+/* 配色と書体の定義。一覧（/assets/index.css）とレポート本体（/assets/report.css）が
+ * どちらもここを読む。色を変えるときはこのファイルだけを直す。
+ *
+ * 紙面トーン：白ではなく温かみのあるオフホワイトを地にして、見出しをセリフで組む。
+ * OS がダークモードでも暗転させない（読み物として一定の見え方を保つ）。
+ */
+:root {
+  color-scheme: light;
+
+  /* 地と面 */
+  --paper: #f4f1eb;      /* ページの地 */
+  --card: #fffdf9;       /* 箱・カードの面 */
+  --sunk: #ebe7df;       /* 入力欄など一段沈めた面 */
+
+  /* 文字 */
+  --ink: #23201b;        /* 本文 */
+  --ink-soft: #6b6459;   /* 補足・メタ情報 */
+  --line: #ded7cb;       /* 罫線 */
+
+  /* 意味を持つ色 */
+  --accent: #2f5372;     /* リンク・操作 */
+  --accent-soft: #e6ebf1;
+  --good: #3a6b4f;       /* 済み・完了 */
+  --warn: #8a5a1c;       /* 注意 */
+  --crit: #9c3b30;       /* 未回答・重い指摘 */
+
+  /* 書体 */
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  --body: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+  --display: ui-serif, Georgia, "Hiragino Mincho ProN", "Yu Mincho", serif;
+}

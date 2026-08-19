@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>レビュー：勤怠集計バッチの実装レビュー（2026-08-05）</title>
+<link rel="stylesheet" href="/assets/report.css">
+<!--
+  使い方: コードレビューやドキュメントレビューの指摘一覧を報告するときに使う。
+  複製して reports/<プロジェクト>/<日付>_<名前>.html にリネームし、対象・観点・指摘内容を実情に合わせて書き換える。
+  冒頭に「見た範囲と観点」を短く書く。指摘の件数はサマリの .bar と実際の div.item の数を必ず一致させること。
+  指摘は1件ぶんを div.item high／mid／low で囲み、その直下に確認事項（div.qa）を置く（h3 は div.item の直下、p.why は div.qa の中）。
+  「確かめた観点」は何を見たかだけを短い語で並べる（件数・秒数・手順・コマンド・テスト出力は書かない）。
+  data-qa-id は複製したら中身に合わせて付け直し、一度公開したら変えないこと。
+-->
+</head>
+<body>
+<div class="wrap">
+  <p class="back"><a href="./">← レポート一覧</a></p>
+  <header>
+    <p class="eyebrow">レビュー ／ kintai-doc ／ 2026-08-05</p>
+    <h1>勤怠集計バッチ（月次締め処理）の実装レビュー</h1>
+    <p class="lede">
+      <code>batch/monthly_close.py</code> と関連SQLをレビューした。件数と重要度は以下のとおり。
+      各指摘に対応する／しない／保留を選んで回答してほしい。
+    </p>
+  </header>
+
+  <section>
+    <h2>見た範囲と観点</h2>
+    <p>
+      <code>batch/monthly_close.py</code> と月次締めで使う関連SQL、既存テストコードを対象に、
+      パフォーマンス（N+1・クエリ件数）、セキュリティ（SQLインジェクション）、可読性（命名の一貫性）、
+      テスト網羅性の4観点でレビューした。
+    </p>
+  </section>
+
+  <section>
+    <h2>サマリ</h2>
+    <div class="bar">
+      <span class="pill high">High 1</span>
+      <span class="pill mid">Mid 2</span>
+      <span class="pill low">Low 1</span>
+      <span class="when">計4件・2026-08-05 時点</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>指摘一覧</h2>
+
+    <div class="item high">
+      <span class="pill high">High</span>
+      <h3><code>batch/monthly_close.py:88</code></h3>
+      <p>従業員ごとにループしながら勤怠明細を1件ずつ <code>SELECT</code> しており、N+1クエリになっている。従業員数が300名を超えると月次締め処理が10分以上かかる。</p>
+      <p>推奨対応: 対象月の勤怠明細を一括で取得し、従業員IDでグルーピングしてからループで集計する。</p>
+      <div class="qa" data-qa-id="rv-001" data-question="N+1クエリの指摘への対応">
+        <p class="why">300名超で月次締めが10分以上かかる点への対応要否を判断してほしい。</p>
+        <label><input type="radio" name="choice" value="対応する">対応する</label>
+        <label><input type="radio" name="choice" value="対応しない">対応しない</label>
+        <label><input type="radio" name="choice" value="保留">保留</label>
+        <textarea name="note" placeholder="補足（任意）"></textarea>
+      </div>
+    </div>
+
+    <div class="item mid">
+      <span class="pill mid">Mid</span>
+      <h3><code>batch/monthly_close.py:142</code></h3>
+      <p>集計期間の指定に利用者から渡された文字列をそのまま <code>WHERE closed_at BETWEEN '{start}' AND '{end}'</code> として埋め込んでおり、SQLインジェクションの余地がある。現状は社内バッチからの呼び出しのみだが、将来API経由で呼ばれると危険。</p>
+      <p>推奨対応: プレースホルダを使ったパラメータバインドに変更する。</p>
+      <div class="qa" data-qa-id="rv-002" data-question="SQLインジェクションの指摘への対応">
+        <p class="why">社内利用のみの現状で対応するか、API公開のタイミングまで見送るかを判断してほしい。</p>
+        <label><input type="radio" name="choice" value="対応する">対応する</label>
+        <label><input type="radio" name="choice" value="対応しない">対応しない</label>
+        <label><input type="radio" name="choice" value="保留">保留</label>
+        <textarea name="note" placeholder="補足（任意）"></textarea>
+      </div>
+    </div>
+
+    <div class="item mid">
+      <span class="pill mid">Mid</span>
+      <h3><code>batch/monthly_close.py:20-96</code></h3>
+      <p>変数名が <code>emp</code>・<code>employee</code>・<code>staff</code> と混在しており、同じ「従業員」を指す変数の呼び方が関数ごとに異なる。可読性を下げ、レビュー時の混乱の元になっている。</p>
+      <p>推奨対応: <code>employee</code> に統一する（ファイル内で一括置換）。</p>
+      <div class="qa" data-qa-id="rv-003" data-question="命名不統一の指摘への対応">
+        <p class="why">可読性への影響度合いを踏まえて対応するか判断してほしい。</p>
+        <label><input type="radio" name="choice" value="対応する">対応する</label>
+        <label><input type="radio" name="choice" value="対応しない">対応しない</label>
+        <label><input type="radio" name="choice" value="保留">保留</label>
+        <textarea name="note" placeholder="補足（任意）"></textarea>
+      </div>
+    </div>
+
+    <div class="item low">
+      <span class="pill low">Low</span>
+      <h3><code>tests/batch/test_monthly_close.py</code></h3>
+      <p>正常系のテストのみで、締め対象月に勤怠データが1件も無い場合や、退職済み従業員が含まれる場合の異常系テストが無い。</p>
+      <p>推奨対応: 空データ・退職済み従業員混在の2ケースをテストに追加する。</p>
+      <div class="qa" data-qa-id="rv-004" data-question="テスト不足の指摘への対応">
+        <p class="why">リリースを妨げるものではないため、対応要否を判断してほしい。</p>
+        <label><input type="radio" name="choice" value="対応する">対応する</label>
+        <label><input type="radio" name="choice" value="対応しない">対応しない</label>
+        <label><input type="radio" name="choice" value="保留">保留</label>
+        <textarea name="note" placeholder="補足（任意）"></textarea>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>確かめた観点</h2>
+    <!-- 何を見たかだけを短く並べる。結果の数字・手順・コマンド・テスト出力は書かない。
+         別のエージェントにレビューを出した場合は、その観点も 1 つとして入れる。 -->
+    <ul class="aspects">
+      <li>クエリ発行回数と処理時間の内訳</li>
+      <li>呼び出し元のSQLと既存テストコード</li>
+      <li>別エージェントによる本レビュー自体の二次チェック</li>
+    </ul>
+  </section>
+
+  <p class="foot">
+    回答は <code>reports/&lt;プロジェクト&gt;/&lt;日付&gt;_&lt;名前&gt;.answers.json</code> に保存される。同じ設問は何度でも答え直せる（最後の回答が残る）。
+  </p>
+</div>
+<script src="/assets/answers.js"></script>
+</body>
+</html>

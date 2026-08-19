@@ -1,0 +1,155 @@
+/* 共通サイドバー（レポート一覧・技術フィード・傾向で共用）。
+ *
+ * DOM（server.py 側で出力。ここでは前提として扱う）:
+ *   <body class="... has-nav">
+ *     <nav class="sidenav">
+ *       <p class="brand"><a href="/">report-hub</a></p>
+ *       <ul class="nav-items">
+ *         <li><a class="nav-item [is-here]" href="...">ラベル <span class="n">件数</span></a></li>
+ *       </ul>
+ *     </nav>
+ *     <div class="wrap">...</div>
+ *   </body>
+ *
+ * 900px 以下ではサイドバーを畳み、上部の横並びナビに切り替える。
+ * 配色は tokens.css の変数のみを使う。
+ */
+@import "/assets/tokens.css";
+
+body.has-nav {
+  display: flex;
+  align-items: stretch;
+  min-height: 100vh;
+}
+
+/* .wrap は各画面の CSS が中身のレイアウトを決めている。ここでは
+ * 「サイドバーの隣に置いて残りの幅を使う」ことだけを足す。 */
+body.has-nav > .wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.sidenav {
+  flex: 0 0 13rem;
+  width: 13rem;
+  box-sizing: border-box;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.6rem;
+  padding: 1.7rem 1.1rem;
+  background: var(--card);
+  border-right: 1px solid var(--line);
+}
+
+.sidenav .brand {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 1.02rem;
+  letter-spacing: .02em;
+}
+.sidenav .brand a {
+  color: var(--ink);
+  text-decoration: none;
+}
+.sidenav .brand a:hover {
+  color: var(--accent);
+}
+.sidenav .brand a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.nav-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  font-size: .88rem;
+  color: var(--ink-soft);
+  text-decoration: none;
+  padding: .55rem .7rem;
+  border-radius: 4px;
+  box-shadow: inset 3px 0 0 transparent;
+}
+.nav-item:hover {
+  background: var(--sunk);
+  color: var(--ink);
+}
+.nav-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.nav-item.is-here {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.nav-item .n {
+  font-size: .74rem;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  background: var(--sunk);
+  border-radius: 999px;
+  padding: .05rem .5rem;
+  line-height: 1.5;
+}
+.nav-item.is-here .n {
+  color: var(--accent);
+  background: var(--card);
+}
+
+/* ------------------------------------------------------------ 狭い画面
+ * 縦のサイドバーのままだと本文が潰れるため、上部の横並びナビに変える。 */
+@media (max-width: 900px) {
+  body.has-nav {
+    display: block;
+  }
+  .sidenav {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    width: auto;
+    height: auto;
+    flex: none;
+    flex-direction: row;
+    align-items: center;
+    gap: 1.2rem;
+    padding: .7rem 1rem;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .sidenav .brand {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+  .nav-items {
+    flex-direction: row;
+    gap: .3rem;
+  }
+  .nav-item {
+    white-space: nowrap;
+    padding: .4rem .8rem;
+    border-radius: 999px;
+    box-shadow: none;
+  }
+  .nav-item.is-here {
+    box-shadow: none;
+  }
+}

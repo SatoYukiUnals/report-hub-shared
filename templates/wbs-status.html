@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WBS 状況レポート</title>
+<link rel="stylesheet" href="/assets/report.css">
+<!--
+  使い方: 毎回の作業開始時など、WBS の取得結果（自分の担当タスク）をそのまま報告するときに使う。
+  複製先: reports/<プロジェクト>/<日付>_<名前>.html
+  書き換え箇所: ヘッダの取得時刻／サマリ表／未完了タスク一覧／直近の作業ログ／確認事項の選択肢。
+  確認事項は末尾にまとめない。対象の表・作業ログの直下に div.item を置き、その中に div.qa を入れる
+  （h3 は div.item の直下、p.why は div.qa の中）。
+  data-qa-id は複製したら中身に合わせて付け直す。一度公開したら変えない。
+-->
+</head>
+<body>
+<div class="wrap">
+  <p class="back"><a href="./">← レポート一覧</a></p>
+  <header>
+    <p class="eyebrow">WBS 状況取得 ／ 取得 2026-08-05 14:30</p>
+    <h1>担当221件のうち未完了101件。超過は受発注さん・勤怠さんに各1件</h1>
+    <p class="lede">
+      wbs-ops で自分（佐藤優樹）の担当タスクを全件取得した結果。値はすべて 2026-08-05 14:30 時点のもの。
+      以降の更新は WBS 側で先に進んでいる可能性がある。
+    </p>
+  </header>
+
+  <section>
+    <h2>サマリ</h2>
+    <div class="card scroll">
+      <table>
+        <thead>
+          <tr><th>プロジェクト</th><th class="num">全件</th><th class="num">完了</th><th class="num">進行中</th><th class="num">未着手</th><th class="num">未完了工数</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>受発注さん</td><td class="num">126</td><td class="num">71</td><td class="num">14</td><td class="num">41</td><td class="num">58.50h</td></tr>
+          <tr><td>WBS管理ソフト開発</td><td class="num">51</td><td class="num">40</td><td class="num">7</td><td class="num">4</td><td class="num">32.50h</td></tr>
+          <tr><td>勤怠さん</td><td class="num">44</td><td class="num">9</td><td class="num">3</td><td class="num">32</td><td class="num">61.00h</td></tr>
+          <tr><td><b>全体</b></td><td class="num"><b>221</b></td><td class="num">120</td><td class="num">24</td><td class="num">77</td><td class="num">152.00h</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>未完了タスク一覧</h2>
+
+    <h3>WBS管理ソフト開発</h3>
+    <div class="card scroll">
+      <table>
+        <thead>
+          <tr><th>WBS No</th><th>タスク</th><th>状態</th><th class="num">進捗</th><th>予定</th><th>実績</th><th class="num">工数</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="num">2.3</td><td>第2弾③ タスク一覧/my-tasksのDBソート＋ページング/遅延取得</td><td><span class="pill warn">InProgress</span></td><td class="num">100%</td><td class="num">2026-08-05〜08-07</td><td class="num">2026-08-03〜</td><td class="num">8.00h</td></tr>
+          <tr><td class="num">2.4</td><td>補足④ WbsEdit保存の逐次PATCHを一括更新API化</td><td><span class="pill quiet">Todo</span></td><td class="num">0%</td><td class="num">2026-08-10〜08-12</td><td class="num">—</td><td class="num">6.00h</td></tr>
+          <tr><td class="num">15.2</td><td>サイドバーの開閉（本文の表示領域を広げる）</td><td><span class="pill warn">InProgress</span></td><td class="num">75%</td><td class="num">2026-08-04〜08-04</td><td class="num">2026-08-04〜</td><td class="num">0.50h</td></tr>
+          <tr><td class="num">16.8</td><td>Blocked ステータスの追加（依存関係の第1段階）</td><td><span class="pill warn">InProgress</span></td><td class="num">75%</td><td class="num">2026-08-04〜08-04</td><td class="num">2026-08-04〜</td><td class="num">1.00h</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>受発注さん</h3>
+    <div class="card scroll">
+      <table>
+        <thead>
+          <tr><th>WBS No</th><th>タスク</th><th>状態</th><th class="num">進捗</th><th>予定</th><th>実績</th><th class="num">工数</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="num">9.4</td><td>ローカル総合テスト・動作確認</td><td><span class="pill warn">InProgress</span></td><td class="num">20%</td><td class="num">なし</td><td class="num">2026-08-04〜</td><td class="num">1.00h</td></tr>
+          <tr><td class="num">9.7</td><td>一括作成のダミーを単体の請求書発行に揃える</td><td><span class="pill warn">InProgress</span></td><td class="num">100%</td><td class="num">なし</td><td class="num">2026-08-05〜</td><td class="num">3.00h</td></tr>
+          <tr><td class="num">1.10.5</td><td>TMRV</td><td><span class="pill warn">InProgress</span> <span class="pill open">超過</span></td><td class="num">0%</td><td class="num">2026-07-13〜07-13</td><td class="num">2026-08-05〜</td><td class="num">1.00h</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>勤怠さん</h3>
+    <div class="card scroll">
+      <table>
+        <thead>
+          <tr><th>WBS No</th><th>タスク</th><th>状態</th><th class="num">進捗</th><th>予定</th><th>実績</th><th class="num">工数</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="num">9.1</td><td>改修（シート修正作業）</td><td><span class="pill warn">InProgress</span></td><td class="num">0%</td><td class="num">なし</td><td class="num">2026-08-04〜</td><td class="num">6.00h</td></tr>
+          <tr><td class="num">1.2</td><td>指摘修正</td><td><span class="pill quiet">Todo</span> <span class="pill open">超過</span></td><td class="num">0%</td><td class="num">2026-07-22〜07-22</td><td class="num">—</td><td class="num">3.00h</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="item">
+      <h3>次に着手するタスクはどれにするか</h3>
+      <div class="qa" data-qa-id="wbs-next" data-question="次に着手するタスクはどれにするか">
+        <p class="why">超過中の 1.10.5（受発注さん）・1.2（勤怠さん）と、進捗100%で確認待ちの 2.3（WBS管理ソフト開発）のいずれを優先するか確認したい。</p>
+        <label><input type="radio" name="choice" value="1.10.5 TMRV（受発注さん・超過）">1.10.5 TMRV（受発注さん・超過）</label>
+        <label><input type="radio" name="choice" value="1.2 指摘修正（勤怠さん・超過）">1.2 指摘修正（勤怠さん・超過）</label>
+        <label><input type="radio" name="choice" value="2.4 WbsEdit保存の一括更新API化（WBS管理ソフト開発）">2.4 WbsEdit保存の一括更新API化（WBS管理ソフト開発）</label>
+        <textarea name="note" placeholder="補足（任意）"></textarea>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>直近の作業ログ</h2>
+    <div class="card">
+      <p class="bar"><b>2026-08-05／WBS管理ソフト開発 2.3</b></p>
+      <p>やったこと：my-tasks の DB ソート・ページング・遅延取得の実装を完了し、進捗100%まで到達。</p>
+      <p>次にやること：08-07 の予定終了までにレビューを受け、マージまで進める。</p>
+    </div>
+    <div class="card">
+      <p class="bar"><b>2026-08-05／受発注さん 9.7</b></p>
+      <p>やったこと：一括作成のダミー処理を単体の請求書発行フローに揃える改修を完了。</p>
+      <p>次にやること：完了確認待ちのため、レビュー結果を待って Done に切り替える。</p>
+    </div>
+    <div class="card">
+      <p class="bar"><b>2026-08-04／勤怠さん 9.1</b></p>
+      <p>やったこと：シート修正作業に着手。対象シートの洗い出しまで完了。</p>
+      <p>次にやること：修正内容を確定し、進捗を更新する。</p>
+    </div>
+
+    <div class="item">
+      <h3>進捗100%で完了確認待ちのタスクを Done にしてよいか</h3>
+      <div class="qa" data-qa-id="wbs-done-ok" data-question="進捗100%で完了確認待ちのタスクを Done にしてよいか">
+        <p class="why">2.3（WBS管理ソフト開発）と 9.7（受発注さん）が進捗100%のまま InProgress で止まっている。Done への更新を承認するか確認する。</p>
+        <label><input type="radio" name="choice" value="両方Doneにする">両方 Done にする</label>
+        <label><input type="radio" name="choice" value="2.3のみDoneにする">2.3 のみ Done にする</label>
+        <label><input type="radio" name="choice" value="どちらも保留">どちらも保留</label>
+        <textarea name="note" placeholder="補足（任意）"></textarea>
+      </div>
+    </div>
+  </section>
+
+  <p class="foot">値は 2026-08-05 14:30 に wbs-ops で取得したもの。回答後は AI がここでの選択に沿って WBS を更新する。</p>
+</div>
+<script src="/assets/answers.js"></script>
+</body>
+</html>
