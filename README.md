@@ -26,6 +26,54 @@ docker compose down         # 停止
 - **新着 n** … 前回開いたあとに更新されたレポートの数。開けば消える（記録は `reports/.read.json`）。
 - レポート 1 件ごとに `未回答 2 / 6`・`回答済 6 / 6`・`設問なし` のいずれかが出る。
 
+## セットアップ（AI に使わせる）
+
+サーバーを起動しただけでは AI は使ってくれない。**「調査結果・作業計画・実施結果は HTML レポートで出す」という運用ルールを、AI が読む `CLAUDE.md` に入れて初めて効く。**
+
+ルールの本体は `rules/report-hub.md`。各マシンの `CLAUDE.md` には**その本体を読み込む数行だけ**を書く。
+本体は clone した repo の中に置いたままなので、**ルールを直したら受け取った側は `git pull` するだけ**で最新になる（CLAUDE.md は触らなくてよい）。
+
+流れは **clone → スキルを入れる → `/report-hub-setup` を呼ぶ** の 3 手。
+
+```bash
+git clone <このリポジトリ> ~/report-hub && cd ~/report-hub
+python3 bin/setup-claudemd.py install-skill --yes    # ~/.claude/skills から使えるようにする
+docker compose up -d                                  # http://localhost:5180/
+```
+
+Claude Code を開き直して `/report-hub-setup` と打つ（「report-hub をセットアップして」でも呼ばれる）。
+書き込み先の階層を対話で聞き、差分を見せ、承認を得てから書き込むところまでスキルがやる。
+
+### スキルの置き場所
+
+スキルの実体は**このリポジトリの中**（`skills/report-hub-setup/`）にある。`install-skill` は `~/.claude/skills/report-hub-setup` から
+それを symlink で参照させるだけなので、**repo を `git pull` すればスキルも新しくなる**。コピーで入れてもよいが、その場合は更新のたびに入れ直す。
+
+`/report-hub-setup` は「入れた後」から呼べる。**入れる前は呼べない**ので、最初の 1 回だけは上のコマンドか、下の手動手順を使う。
+
+### スキルを使わずに入れる
+
+```bash
+python3 bin/setup-claudemd.py status --target ~/.claude            # 書き込む中身と差分を見る
+python3 bin/setup-claudemd.py apply  --target ~/.claude --yes      # 書き込む
+```
+
+- `--target` には `CLAUDE.md` を置く**階層（ディレクトリ）**か、`CLAUDE.md` そのものを渡す。どこまで効かせたいかで選ぶ。
+
+  | 指定先 | 効く範囲 |
+  | :--- | :--- |
+  | `~/.claude` | そのマシンの全プロジェクト |
+  | `~/ghq/github.com/<org>` | その配下のリポジトリすべて |
+  | リポジトリのルート | そのリポジトリだけ |
+
+- 書き込みは `<!-- report-hub:begin -->` 〜 `<!-- report-hub:end -->` で挟んだ**区画だけ**を入れ替える。既存のルールは壊さない。何度実行しても二重にならない。
+- 読み込み先のパスと、ルール本文中の `<report-hub>` が指す場所は、そのマシンでの実際の置き場所として書き込まれる。
+- 既存ファイルは `CLAUDE.md.bak-<日時>` に控えが残る。
+- 効くのは**次にセッションを開いたとき**から。
+- ルールを直したいときは `rules/report-hub.md` を直す。link で入れてあれば**入れ直しは要らない**（配った先は `git pull` だけ）。
+- 読み込み（`@` 記法）に対応していない道具で使うときだけ `--mode embed` を付ける。本文をそのまま貼るので、更新のたびに入れ直しが要る。
+- `link` で入れた後に repo を移したり消したりすると、ルールが読めなくなる。移したら入れ直す。
+
 ## 置き場所
 
 ```
@@ -34,7 +82,12 @@ report-hub/
 ├── server.py                        ← 一覧・配信・回答の保存（標準ライブラリのみ）
 ├── mdlib.py                          ← 成果物ビューア（/d/…）で .md を HTML に直す
 ├── bin/
-│   └── watch-answers.py             ← 回答が入るまで待つ（AI が使う）
+│   ├── watch-answers.py             ← 回答が入るまで待つ（AI が使う）
+│   └── setup-claudemd.py            ← CLAUDE.md から運用ルールを読ませる（セットアップ）
+├── rules/
+│   └── report-hub.md                ← 運用ルールの本体。CLAUDE.md から読み込まれる（直すのはここ）
+├── skills/
+│   └── report-hub-setup/            ← セットアップ用のスキル（/report-hub-setup）
 ├── assets/
 │   ├── report.css / tokens.css / nav.css / doc.css / index.css
 │   ├── index.js
