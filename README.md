@@ -30,49 +30,62 @@ docker compose down         # 停止
 
 サーバーを起動しただけでは AI は使ってくれない。**「調査結果・作業計画・実施結果は HTML レポートで出す」という運用ルールを、AI が読む `CLAUDE.md` に入れて初めて効く。**
 
-ルールの本体は `rules/report-hub.md`。各マシンの `CLAUDE.md` には**その本体を読み込む数行だけ**を書く。
-本体は clone した repo の中に置いたままなので、**ルールを直したら受け取った側は `git pull` するだけ**で最新になる（CLAUDE.md は触らなくてよい）。
+入れる作業は `/report-hub-setup` スキルがやる。使う人は **① スキルを入れる → ② 呼ぶ → ③ 質問に答える** の 3 つだけ。
 
-流れは **clone → スキルを入れる → `/report-hub-setup` を呼ぶ** の 3 手。
+### ① clone してスキルを入れる（最初の 1 回だけ）
 
 ```bash
 git clone <このリポジトリ> ~/report-hub && cd ~/report-hub
-python3 bin/setup-claudemd.py install-skill --yes    # ~/.claude/skills から使えるようにする
+python3 bin/setup-claudemd.py install-skill --yes    # /report-hub-setup を使えるようにする
 docker compose up -d                                  # http://localhost:5180/
 ```
 
-Claude Code を開き直して `/report-hub-setup` と打つ（「report-hub をセットアップして」でも呼ばれる）。
-書き込み先の階層を対話で聞き、差分を見せ、承認を得てから書き込むところまでスキルがやる。
+`install-skill` は `~/.claude/skills/report-hub-setup` から repo の中のスキルを symlink で参照させるだけ。
+実体は repo に残るので、**`git pull` すればスキルもルールも新しくなる**。
 
-### スキルの置き場所
+入れ終わったら **Claude Code を開き直す**（起動時に読み込まれるため）。
 
-スキルの実体は**このリポジトリの中**（`skills/report-hub-setup/`）にある。`install-skill` は `~/.claude/skills/report-hub-setup` から
-それを symlink で参照させるだけなので、**repo を `git pull` すればスキルも新しくなる**。コピーで入れてもよいが、その場合は更新のたびに入れ直す。
+### ② `/report-hub-setup` と打つ
 
-`/report-hub-setup` は「入れた後」から呼べる。**入れる前は呼べない**ので、最初の 1 回だけは上のコマンドか、下の手動手順を使う。
+「report-hub をセットアップして」のように話しかけても呼ばれる。
 
-### スキルを使わずに入れる
+### ③ 聞かれることに答える
 
-```bash
-python3 bin/setup-claudemd.py status --target ~/.claude            # 書き込む中身と差分を見る
-python3 bin/setup-claudemd.py apply  --target ~/.claude --yes      # 書き込む
+スキルは**どの階層の `CLAUDE.md` に入れるか**を聞いてくる。ここだけが決めどころ。
+
+| 選ぶ階層 | 効く範囲 |
+| :--- | :--- |
+| `~/.claude` | そのマシンの全プロジェクト |
+| `~/ghq/github.com/<org>` のような親ディレクトリ | その配下のリポジトリすべて |
+| リポジトリのルート | そのリポジトリだけ |
+
+選ぶと、**何が書き込まれるかを差分で見せてから**「入れてよいか」を聞いてくる。承認すると書き込み、最後にサーバーが動いているかまで見て、止まっていれば起動する。
+
+### 何が入るのか
+
+触るのは**選んだ階層の `CLAUDE.md` 1 ファイルだけ**。入るのはルール本体を読み込む十数行で、本文そのものはコピーされない。
+
+```markdown
+<!-- report-hub:begin この区画は report-hub が書く。ルールを直すなら repo の rules/report-hub.md -->
+# 成果物は HTML レポートで出す（report-hub）
+
+調査結果・作業計画・実施結果・レビュー・確認事項は、チャットの箇条書きで済ませず
+report-hub の HTML レポートとして出す。運用ルールの本体は次の 1 行で読み込む。
+
+@~/report-hub/rules/report-hub.md
+...
+<!-- report-hub:end -->
 ```
 
-- `--target` には `CLAUDE.md` を置く**階層（ディレクトリ）**か、`CLAUDE.md` そのものを渡す。どこまで効かせたいかで選ぶ。
+- **CLAUDE.md が無ければ**その数行だけのファイルができる。**既にあれば**既存の中身はそのまま残り、末尾に区画が足される（書き換える前の控えが `CLAUDE.md.bak-<日時>` に残る）。
+- **もう入っていれば**区画の中だけが入れ替わる。二重にならないし、区画の外に自分で書いたルールは触らない。
+- 効き始めるのは**次にセッションを開いたとき**から。
 
-  | 指定先 | 効く範囲 |
-  | :--- | :--- |
-  | `~/.claude` | そのマシンの全プロジェクト |
-  | `~/ghq/github.com/<org>` | その配下のリポジトリすべて |
-  | リポジトリのルート | そのリポジトリだけ |
+### 入れた後
 
-- 書き込みは `<!-- report-hub:begin -->` 〜 `<!-- report-hub:end -->` で挟んだ**区画だけ**を入れ替える。既存のルールは壊さない。何度実行しても二重にならない。
-- 読み込み先のパスと、ルール本文中の `<report-hub>` が指す場所は、そのマシンでの実際の置き場所として書き込まれる。
-- 既存ファイルは `CLAUDE.md.bak-<日時>` に控えが残る。
-- 効くのは**次にセッションを開いたとき**から。
-- ルールを直したいときは `rules/report-hub.md` を直す。link で入れてあれば**入れ直しは要らない**（配った先は `git pull` だけ）。
-- 読み込み（`@` 記法）に対応していない道具で使うときだけ `--mode embed` を付ける。本文をそのまま貼るので、更新のたびに入れ直しが要る。
-- `link` で入れた後に repo を移したり消したりすると、ルールが読めなくなる。移したら入れ直す。
+- **ルールを直したいとき**は `rules/report-hub.md` を直す。配った先は `git pull` するだけでよく、各マシンの `CLAUDE.md` を書き換えて回る必要はない。
+- **repo を移したり消したりすると**ルールが読めなくなる。移したらもう一度 `/report-hub-setup` を実行する。
+- 効かせる階層を増やしたい・外したいときも `/report-hub-setup` を実行する（外すのは区画を消すだけなので手でもよい）。
 
 ## 置き場所
 
