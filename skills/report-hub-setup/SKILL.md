@@ -67,11 +67,12 @@ python3 <report-hub>/bin/setup-claudemd.py apply --target <選んだ階層> --ye
 ルールを入れただけでは閲覧できない。次を確認し、足りないものをユーザーへ伝える。
 
 ```bash
-cd <report-hub> && docker compose ps
-curl -s -o /dev/null -w '%{http_code}\n' http://localhost:5180/
+curl -s -o /dev/null -w '%{http_code}\n' --max-time 2 http://localhost:5180/
 ```
 
-- 止まっていれば `docker compose up -d` を案内する（`http://localhost:5180/`）。
+- 返らなければ**自分で起動する**（`cd <report-hub> && docker compose up -d`）。案内だけで終わらせると、ルールを入れた直後にレポートを出せない。
+  立ち上がりに数秒かかるので、起動後にもう一度開けるか確かめる。
+- Docker 自体が動いていない・起動に失敗したときは、そこで止めてユーザーへ伝える（勝手に Docker を入れたり設定を変えたりしない）。
 - 成果物ビューア（`/d/…`）を使うなら、`docker-compose.yml` の `volumes` に読みたいリポジトリを `:ro` で足す必要がある。
   既に書いてある行がこのマシンに無いパスを指していることもある。**勝手に消さず**、該当する行を見せて確認する。
 

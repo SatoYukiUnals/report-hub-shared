@@ -30,7 +30,15 @@ MD での報告物は作らない。ローカルの TASK.md / TODO.md / PLAN.md 
 - `<report-hub>/reports/<プロジェクト>/<YYYY-MM-DD>_<名前>.html`
 - プロジェクト名・レポート名に使えるのは半角英数字・`.`・`_`・`-` のみ。日本語・スペースはサーバーが弾く。
 - 閲覧 URL は `http://localhost:5180/r/<プロジェクト>/<名前>.html`。一覧は `http://localhost:5180/`。
-- サーバーが止まっていたら `cd <report-hub> && docker compose up -d` を案内する。
+- **サーバーが止まっていたら自分で起動する**（案内で終わらせない）。レポートを出す前に応答を確かめ、返らなければ起動してから出す。
+
+  ```bash
+  curl -s -o /dev/null -w '%{http_code}' --max-time 2 http://localhost:5180/ \
+    || (cd <report-hub> && docker compose up -d)
+  ```
+
+  起動した後は、実際に開けるようになったかをもう一度確かめる（立ち上がりに数秒かかる）。
+  Docker 自体が動いていない・起動に失敗したときは、そこで止めてユーザーへ伝える（勝手に Docker を入れたり設定を変えたりしない）。
 
 ## テンプレートから起こす
 
