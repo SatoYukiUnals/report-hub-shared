@@ -113,6 +113,7 @@ report-hub/
     └── <プロジェクト>/
         ├── <名前>.html              ← AI が書く（進行中）
         ├── <名前>.answers.json      ← サーバーが書く（回答）
+        ├── media/                   ← レポートに貼る画面・動画（完了へ移しても動かさない）
         └── done/                    ← 片が付いたものをここへ移す（完了）
             ├── <名前>.html
             └── <名前>.answers.json
@@ -154,6 +155,25 @@ mv done/<名前>.* .                          # 差し戻されたら戻す
 
 プロジェクト名・レポート名に使えるのは半角英数字・`.`・`_`・`-` のみ。日本語やスペースを含む名前はサーバーが弾く。
 
+## 画面と動画
+
+画面に触る変更の実施結果には、直した画面のスクリーンショットと操作の流れの動画を貼る。文章だけでは、直した画面が実際どう見えるかが読む側に伝わらない。
+
+ファイルは `reports/<プロジェクト>/media/` に置き、レポートからは `/r/<プロジェクト>/media/<ファイル>` の**絶対パス**で参照する（完了へ移してもリンクが切れない）。置ける拡張子は `png` / `jpg` / `gif` / `svg` / `webm` / `mp4`。
+
+```html
+<div class="shots two">                        <!-- 2 枚並べて見比べる。1 枚なら class="shots" -->
+  <figure class="shot">
+    <img src="/r/<プロジェクト>/media/2026-08-05_approval-list.png" alt="申請一覧の承認段階列">
+    <figcaption>申請一覧。承認段階の列が増え、いまどちらの承認待ちかが分かる。</figcaption>
+  </figure>
+  <figure class="shot">
+    <video src="/r/<プロジェクト>/media/2026-08-05_approval-flow.webm" controls muted playsinline></video>
+    <figcaption>一次承認から最終承認まで進むところ。</figcaption>
+  </figure>
+</div>
+```
+
 ## URL
 
 | メソッド・パス | 内容 |
@@ -164,6 +184,7 @@ mv done/<名前>.* .                          # 差し戻されたら戻す
 | `GET /api/signature` | 一覧の中身を表す文字列（自動更新の判定に使う） |
 | `GET /r/<プロジェクト>/<名前>.html` | レポート本体（開いた時刻を記録する） |
 | `GET /t/<名前>.html` | テンプレートの下見 |
+| `GET /r/<プロジェクト>/media/<ファイル>` | レポートに貼る画面・動画（`png` / `jpg` / `gif` / `svg` / `webm` / `mp4`） |
 | `GET /assets/<ファイル>` | 共通の css / js |
 | `GET /api/answers/<プロジェクト>/<名前>` | 回答の取得（再読み込み時の復元に使う。完了ぶんは `<プロジェクト>/done/<名前>`） |
 | `POST /api/answers/<プロジェクト>/<名前>` | 回答の保存（`{answers: [{qa_id, question, choice, note}, ...]}`。1 件だけの `{qa_id, ...}` も受ける） |

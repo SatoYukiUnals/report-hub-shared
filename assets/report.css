@@ -217,3 +217,33 @@ tbody tr:last-child td { border-bottom: 0; }
 /* 見出しの脇に件数などを並べる行 */
 .bar { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
 .bar .when { margin-left: auto; color: var(--ink-soft); font-size: .82rem; font-variant-numeric: tabular-nums; }
+
+/* ── 画面・動画（実施結果に貼る現物） ─────────────────────────────
+   figure.shot を 1 件 1 枚として並べる。画像・動画は枠に収め、
+   下に 1 行の説明（figcaption）を置く。狭い画面でも横にはみ出さない。 */
+.shots { display: grid; gap: 1rem; margin: .75rem 0 0; padding: 0; }
+.shots.two { grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); }
+figure.shot { margin: 0; }
+figure.shot img,
+figure.shot video {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* 縦長の画面を貼っても本文が画像で埋まらないよう、高さの上限を決めて収める。
+     横幅の違う画面を 2 枚並べたときも、上限で頭が揃う。 */
+  max-height: 30rem;
+  object-fit: contain;
+  object-position: center top;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+}
+/* 見比べる 2 枚は高さを揃える。縦横比が違う画面同士でも説明の位置がずれない。 */
+.shots.two figure.shot img,
+.shots.two figure.shot video { height: 20rem; }
+
+figure.shot figcaption {
+  margin-top: .4rem;
+  font-size: .85rem;
+  color: var(--ink-soft);
+}

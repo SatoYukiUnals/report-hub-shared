@@ -10,6 +10,9 @@
   複製して reports/<プロジェクト>/<日付>_<名前>.html にリネームし、中身を実情に合わせて書き換える。
   実行したコマンドのログ（コマンド列・pytest 出力・ビルドログ）は貼らない。「確認したこと」は日本語の短い箇条書きで、件数・秒数・差分などの具体値を必ず入れる。
   修正内容はファイル名・行番号の列挙ではなく、画面・機能の単位で「対象（画面・機能）」「いま」「どう直したか」の3列にまとめる。関数名・行番号・差分などの実装の話は書かない。
+  画面に触る変更なら「画面」の節を必ず入れる。直した画面ごとにスクリーンショットを 1 枚、操作の流れも短い動画（webm）で 1 本貼る。
+  画像・動画は reports/<プロジェクト>/media/ に置き、レポートからは /r/<プロジェクト>/media/<ファイル> の絶対パスで参照する（完了へ移してもリンクが切れない）。
+  ファイル名は <日付>_<レポート名>-<何の画面か>.png のように、どのレポートのものか分かる形にする。
   確認事項は末尾にまとめない。問いの対象になっている項目を div.item で囲み、その直下に div.qa を置く。末尾に残すのは全体の可否を聞く1問だけにする。
   data-qa-id は複製したら中身に合わせて付け直し、一度公開したら変えないこと。
 -->
@@ -65,6 +68,31 @@
       <span class="arrow" aria-hidden="true">↓</span>
       <span class="tag to">こうした</span>
       <span class="to">一次承認／最終承認で文言を出し分けるようにした</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>画面</h2>
+    <!-- 画面に触る変更なら必ず入れる。直した画面ごとに 1 枚、操作の流れは動画で 1 本。
+         図の下の説明は「何の画面の、どこを見てほしいか」を 1 行で書く。長い説明は修正内容の側へ。
+         2 枚並べて見比べさせたいとき（直す前と後・狭い画面と広い画面）は div.shots.two を使う。 -->
+
+    <div class="shots two">
+      <figure class="shot">
+        <img src="/r/kintai-doc/media/2026-08-05_approval-list.png" alt="申請一覧の承認段階列">
+        <figcaption>申請一覧。承認段階の列が増え、いまどちらの承認待ちかが分かる。</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="/r/kintai-doc/media/2026-08-05_approval-mail.png" alt="最終承認の依頼メール">
+        <figcaption>最終承認の依頼メール。一次承認済みであることが本文に出る。</figcaption>
+      </figure>
+    </div>
+
+    <div class="shots">
+      <figure class="shot">
+        <video src="/r/kintai-doc/media/2026-08-05_approval-flow.webm" controls muted playsinline></video>
+        <figcaption>5日以上の休暇を申請し、一次承認から最終承認まで進むところ。</figcaption>
+      </figure>
     </div>
   </section>
 

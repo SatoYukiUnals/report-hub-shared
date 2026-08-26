@@ -20,6 +20,7 @@ URL:
   GET  /r/<プロジェクト>/<名前>.html        レポート本体（開いた時刻を記録する）
   GET  /r/<プロジェクト>/                   一覧のそのプロジェクトの位置へ戻す（302）
   GET  /t/<名前>.html                      テンプレート（複製して使う雛形）
+  GET  /r/<プロジェクト>/media/<ファイル>    レポートに貼る画面・動画
   GET  /assets/<ファイル>                   共通の css / js
   GET  /api/answers/<プロジェクト>/<名前>   回答の取得（再読み込み時の復元用・AI もここから読む）
   POST /api/answers/<プロジェクト>/<名前>   回答の保存（同じ設問は上書き）
@@ -99,6 +100,19 @@ STALE_DAYS, ROTTEN_DAYS = 3, 7
 NAME_DATE = re.compile(r"^(\d{4}-\d{2}-\d{2})_(.+)$")
 # 完了したレポートの置き場（<プロジェクト>/done/）
 DONE_DIR = "done"
+# レポートに貼る画面・動画の置き場（<プロジェクト>/media/）と、配信してよい拡張子。
+# 実施結果は画面・動画を貼る決まりのため、レポートと同じ場所に置いて /r/<プロジェクト>/media/… で出す。
+# 完了へ移してもここは動かさないので、レポート側は絶対パスで参照する（リンクが切れない）。
+MEDIA_DIR = "media"
+MEDIA_TYPES = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".svg": "image/svg+xml",
+    ".webm": "video/webm",
+    ".mp4": "video/mp4",
+}
 
 # 成果物ビューアで開ける拡張子。md は HTML に直して出し、それ以外はそのまま返す。
 # 実行できるもの（.html / .js）は入れない（レポート側と混ざらないようにするため）。
@@ -125,6 +139,15 @@ FEED_GROUPS = [
     ("community", "海外"),
     ("github", "リリース"),
 ]
+
+
+def _safe_media_path(project: str, filename: str) -> Path | None:
+    """レポートに貼る画面・動画の実ファイルのパスを組む。危うい名前・扱わない拡張子は None。"""
+    if not SAFE_NAME.match(project) or not SAFE_NAME.match(filename):
+        return None
+    if Path(filename).suffix.lower() not in MEDIA_TYPES:
+        return None
+    return REPORTS_DIR / project / MEDIA_DIR / filename
 
 
 def _safe_report_path(project: str, name: str, suffix: str, done: bool = False) -> Path | None:
@@ -494,6 +517,15 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_text(404, "ありません")
                 return
             self._send(200, asset.read_bytes(), content_type)
+            return
+
+        # /r/<project>/media/<file>（レポートに貼る画面・動画）
+        if parts[:1] == ["r"] and len(parts) == 4 and parts[2] == MEDIA_DIR:
+            target = _safe_media_path(parts[1], parts[3])
+            if target is None or not target.is_file():
+                self._send_text(404, "その画面・動画はありません")
+                return
+            self._send(200, target.read_bytes(), MEDIA_TYPES[target.suffix.lower()])
             return
 
         # /r/<project>/<name>.html ・ /r/<project>/done/<name>.html（完了ぶん）
