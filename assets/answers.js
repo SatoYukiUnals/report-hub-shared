@@ -88,13 +88,88 @@
     count.className = left ? 'qa-bar-count is-open' : 'qa-bar-count'
   }
 
+  /** まだ答えていない設問（保存済みは復元されるので答え済みとして数える） */
+  const unanswered = () => boxes().filter((box) => !readBox(box))
+
+  /** 設問の見出し。無ければ data-question を使う */
+  const titleOf = (box) => {
+    const head = box.querySelector('h3')
+    const text = head ? head.textContent.trim() : ''
+    return text || box.dataset.question || box.dataset.qaId
+  }
+
+  /** 最初の未回答へ連れて行く。
+   *
+   * スライド様式では枚をまたいで設問が散るので、回答バーの件数を押したときと
+   * 同じ経路（slide.js が拾う）で枚を移動させてからスクロールする。
+   */
+  const goToFirstUnanswered = () => {
+    const box = unanswered()[0]
+    if (!box) return
+    count.click()
+    box.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const field = box.querySelector('input[type="radio"], [name="note"]')
+    if (field) field.focus({ preventScroll: true })
+  }
+
+  // ------------------------------------------------- 未回答が残っているときの確認
+  // ブラウザの confirm() は使わない（拡張から操作しているとき画面が固まる）。
+  const dialog = document.createElement('dialog')
+  dialog.className = 'qa-confirm'
+  const dialogTitle = document.createElement('h3')
+  const dialogList = document.createElement('ul')
+  const dialogActions = document.createElement('div')
+  dialogActions.className = 'qa-confirm-actions'
+  const backButton = document.createElement('button')
+  backButton.type = 'button'
+  backButton.className = 'is-back'
+  backButton.textContent = '戻って答える'
+  const sendButton = document.createElement('button')
+  sendButton.type = 'button'
+  sendButton.className = 'is-send'
+  sendButton.textContent = 'このまま送る'
+  dialogActions.append(backButton, sendButton)
+  dialog.append(dialogTitle, dialogList, dialogActions)
+
+  /** 未回答があれば確認を出す。送ってよければ true を返す */
+  const confirmPartial = () => {
+    const left = unanswered()
+    if (!left.length) return Promise.resolve(true)
+    dialogTitle.textContent = `${left.length} 件がまだ未回答`
+    dialogList.replaceChildren()
+    for (const box of left) {
+      const li = document.createElement('li')
+      li.textContent = titleOf(box)
+      dialogList.appendChild(li)
+    }
+    if (!dialog.isConnected) document.body.appendChild(dialog)
+    dialog.showModal()
+    return new Promise((resolve) => {
+      const done = (ok) => {
+        dialog.close()
+        backButton.removeEventListener('click', onBack)
+        sendButton.removeEventListener('click', onSend)
+        dialog.removeEventListener('cancel', onCancel)
+        resolve(ok)
+      }
+      const onBack = () => { done(false); goToFirstUnanswered() }
+      const onSend = () => done(true)
+      const onCancel = () => done(false)
+      backButton.addEventListener('click', onBack)
+      sendButton.addEventListener('click', onSend)
+      dialog.addEventListener('cancel', onCancel)
+    })
+  }
+
   // ---------------------------------------------------------------- 保存
-  const save = async () => {
+  const save = async ({ ask = true } = {}) => {
     const entries = boxes().map(readBox).filter(Boolean)
     if (!entries.length) {
       message.textContent = '選んでから回答する。'
       return
     }
+    // 答え残しがあるまま送ろうとしたら、一度止めて見せる
+    if (ask && !(await confirmPartial())) return
     button.disabled = true
     message.textContent = ''
     try {
