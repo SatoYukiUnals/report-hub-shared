@@ -87,6 +87,42 @@ report-hub の HTML レポートとして出す。運用ルールの本体は次
 - **repo を移したり消したりすると**ルールが読めなくなる。移したらもう一度 `/report-hub-setup` を実行する。
 - 効かせる階層を増やしたい・外したいときも `/report-hub-setup` を実行する（外すのは区画を消すだけなので手でもよい）。
 
+## Stop フック（成果物をチャットに書いたままにしていないか確認する）
+
+セットアップでルールを入れても、AI が判断を誤ってチャット本文に長い成果物を書いたまま終えることがある。`hooks/suggest-html-report.py` は Stop フックとして、それを機械的に拾って止める。
+
+止まるのは次の**すべて**に当てはまるときだけ。
+
+- 最後の返答が長い（既定 1200 文字以上）
+- 成果物の形をしている（見出し・箇条書き・表が一定数ある）
+- そのターンで `reports/` 配下へ書き出していない
+- 返答の中に report-hub の URL が出てこない
+
+いずれかに当てはまらなければ素通しする。会話の続き・短い確認・コードの説明はそのままでよい。1 ターンにつき確認は 1 回だけで、2 回目は素通しする（同じことを繰り返し聞かない）。
+
+`~/.claude/settings.json` の `hooks.Stop` に登録して使う。入れ子の形に気をつける。
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"<report-hub>/hooks/suggest-html-report.py\"",
+            "statusMessage": "HTML レポートに出すべきか確認中",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+実体は clone した report-hub の中に置いたまま、`settings.json` からそのパスを直接呼ぶ（`~/.claude` 側にコピーは作らない）。`<report-hub>` は各自の環境で clone した場所（`~/report-hub` など）に読み替える。
+
 ## 置き場所
 
 ```
@@ -101,6 +137,8 @@ report-hub/
 │   └── report-hub.md                ← 運用ルールの本体。CLAUDE.md から読み込まれる（直すのはここ）
 ├── skills/
 │   └── report-hub-setup/            ← セットアップ用のスキル（/report-hub-setup）
+├── hooks/
+│   └── suggest-html-report.py       ← Stop フック。成果物をチャットに書いたままにしていないか確認する
 ├── assets/
 │   ├── report.css / tokens.css / nav.css / doc.css / index.css
 │   ├── index.js

@@ -247,3 +247,43 @@ figure.shot figcaption {
   font-size: .85rem;
   color: var(--ink-soft);
 }
+
+/* 手順書・テスト手順。1 手順 1 操作で、番号は CSS が振る（本文に番号を書かせない）。
+   .where=どこで／.do=操作／.ok=済んだ目印／.ng=うまくいかないとき。 */
+ol.steps {
+  counter-reset: step;
+  list-style: none;
+  margin: 0 0 1.4rem;
+  padding: 0;
+}
+ol.steps > li {
+  counter-increment: step;
+  position: relative;
+  margin: 0 0 1.1rem;
+  padding: 0 0 0 3.1rem;
+}
+ol.steps > li:last-child { margin-bottom: 0; }
+ol.steps > li::before {
+  content: counter(step);
+  position: absolute; left: 0; top: 0;
+  width: 2.1rem; height: 2.1rem;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--display); font-size: .95rem; font-weight: 700;
+  color: var(--accent); background: var(--accent-soft);
+  border: 1px solid rgb(47 107 143 / .25); border-radius: 999px;
+}
+ol.steps .where {
+  display: inline-block; margin: 0 0 .25rem;
+  font-family: var(--mono); font-size: .72rem; letter-spacing: .02em;
+  padding: .1em .6em; border-radius: 999px;
+  background: var(--sunk); border: 1px solid var(--line); color: var(--ink-soft);
+}
+ol.steps .do { margin: 0; font-size: 1rem; }
+ol.steps .ok,
+ol.steps .ng { margin: .3rem 0 0; font-size: .88rem; color: var(--ink-soft); }
+ol.steps .ok::before {
+  content: "✓"; margin-right: .45em; color: #35602c; font-weight: 700;
+}
+ol.steps .ng::before {
+  content: "△"; margin-right: .45em; color: #8a3a18; font-weight: 700;
+}
