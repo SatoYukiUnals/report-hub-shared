@@ -12,7 +12,8 @@
  *   </body>
  *
  * 900px 以下ではサイドバーを畳み、上部の横並びナビに切り替える。
- * 配色は tokens.css の変数のみを使う。
+ * 配色は tokens.css の変数のみを使う。コルクの地に立てた 1 枚の板として、
+ * 紙の面に落ち影を付ける。
  */
 @import "/assets/tokens.css";
 
@@ -44,6 +45,7 @@ body.has-nav > .wrap {
   padding: 1.7rem 1.1rem;
   background: var(--card);
   border-right: 1px solid var(--line);
+  box-shadow: 2px 0 8px rgb(58 38 18 / .18);
 }
 
 .sidenav .brand {

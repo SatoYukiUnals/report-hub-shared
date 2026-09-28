@@ -9,7 +9,7 @@ AI（Claude Code）が Monitor から呼ぶ前提。標準出力の 1 行が 1 �
 出力（1 行 1 件）:
   [回答] qa-1 → 取消 ／ 対象画面が消えたため
   [完了] 6 件すべてに回答が入った
-  [エラー] レポートがない: reports/wbs_site/xxx.html
+  [エラー] レポートがない: reports/example/xxx.html
 
 終了コード: 0 全問回答, 1 レポートがない。
 時間切れは呼び出し側（Monitor の timeout）が打ち切る。

@@ -132,7 +132,10 @@ report-hub/
 ├── mdlib.py                          ← 成果物ビューア（/d/…）で .md を HTML に直す
 ├── bin/
 │   ├── watch-answers.py             ← 回答が入るまで待つ（AI が使う）
+│   ├── check-reports.py             ← レポートの書き方の検査（書き終えたら通す）
 │   └── setup-claudemd.py            ← CLAUDE.md から運用ルールを読ませる（セットアップ）
+├── tests/
+│   └── test_check_reports_length.py ← check-reports.py の長文検査の判定表
 ├── rules/
 │   └── report-hub.md                ← 運用ルールの本体。CLAUDE.md から読み込まれる（直すのはここ）
 ├── skills/
@@ -141,9 +144,13 @@ report-hub/
 │   └── suggest-html-report.py       ← Stop フック。成果物をチャットに書いたままにしていないか確認する
 ├── assets/
 │   ├── report.css / tokens.css / nav.css / doc.css / index.css
+│   ├── slide.css                    ← スライド様式の見た目（tokens.css を読む）
+│   ├── slide.js                     ← スライドの送り・枚のアンカー（図があるときだけ mermaid.min.js を読む）
+│   ├── mermaid.min.js               ← 図の描画（mermaid 11.17.2・MIT。外部から読まずに同梱）
 │   ├── index.js
 │   └── answers.js                   ← 回答の保存（末尾の［回答する］を差し込む）
 ├── templates/                       ← 用途別の雛形。複製して使う
+│   ├── slide.html                   ← 既定の雛形（スライド様式）
 │   ├── qa.html / review.html / survey.html / plan.html / result.html
 │   └── wbs-status.html / wbs-change.html
 └── reports/
@@ -179,13 +186,17 @@ mv done/<名前>.* .                          # 差し戻されたら戻す
 
 `templates/` の雛形を `reports/<プロジェクト>/<YYYY-MM-DD>_<名前>.html` へ複製し、中身を書き換えて使う。一覧の末尾からブラウザで下見できる（`/t/<名前>.html`。下見では回答は保存されない）。
 
+**既定は `slide.html`。** レポートはこれで出す（決めの正は `rules/report-hub.md`）。
+縦スクロール様式の雛形は、過去に出したレポートを読むために残してある。
+
 | ファイル | 用途 |
 | :--- | :--- |
-| `qa.html` | 質問・確認事項 |
-| `review.html` | レビュー（RV）。指摘ごとに対応可否を聞く |
-| `survey.html` | 調査結果 |
-| `plan.html` | 作業計画（対応内容・修正内容・懸念点） |
-| `result.html` | 実施結果 |
+| `slide.html` | **既定。** 1 枚ずつ送って見せるスライド様式。調査結果・作業計画・実施結果・レビューのいずれもこれで出す |
+| `qa.html` | 質問・確認事項（縦スクロール様式） |
+| `review.html` | レビュー（RV）。指摘ごとに対応可否を聞く（縦スクロール様式） |
+| `survey.html` | 調査結果（縦スクロール様式） |
+| `plan.html` | 作業計画（縦スクロール様式） |
+| `result.html` | 実施結果（縦スクロール様式） |
 | `wbs-status.html` | タスク管理ツールから取得した状況の出力（使わないなら削除してよい） |
 | `wbs-change.html` | タスク管理ツールを更新する前の確認（現在値 → 変更後。使わないなら削除してよい） |
 
@@ -200,7 +211,7 @@ mv done/<名前>.* .                          # 差し戻されたら戻す
 ファイルは `reports/<プロジェクト>/media/` に置き、レポートからは `/r/<プロジェクト>/media/<ファイル>` の**絶対パス**で参照する（完了へ移してもリンクが切れない）。置ける拡張子は `png` / `jpg` / `gif` / `svg` / `webm` / `mp4`。
 
 ```html
-<div class="shots two">                        <!-- 2 枚並べて見比べる。1 枚なら class="shots" -->
+<div class="shots">                            <!-- 見比べるときも横に並べず、上下に並べる -->
   <figure class="shot">
     <img src="/r/<プロジェクト>/media/2026-08-05_approval-list.png" alt="申請一覧の承認段階列">
     <figcaption>申請一覧。承認段階の列が増え、いまどちらの承認待ちかが分かる。</figcaption>
@@ -248,7 +259,10 @@ mv done/<名前>.* .                          # 差し戻されたら戻す
 - `.txt` `.csv` `.json` `.py` `.png` などはそのまま返す。**`.html` `.js` は開けない**（レポートと混ざらないようにするため）。
 - `sources/` の外は指せない（`..` やシンボリックリンクはパスの検査で落ちる）。`sources/` は git に入れない。
 
-レポートから使うときは、リンクか `<details>` + `<iframe>`（`?bare=1`）で埋め込む。
+### 埋め込み表示（`?bare=1`）
+
+URL の末尾に `?bare=1` を付けると、左のサイドバーと道すじを外した表示になる。
+レポートの中へ `<iframe>` で埋め込むときに使う。レポートから使うときは、リンクか `<details>` + `<iframe>` で埋め込む。
 
 ```html
 <details class="doc">
@@ -282,6 +296,9 @@ mv done/<名前>.* .                          # 差し戻されたら戻す
 - `data-question` は回答ファイルに設問名として残る。後から読み返すときの手掛かり。
 - 設問は静的な HTML で書く。JavaScript で組み立てると一覧の未回答件数に数えられない。
 - `<pre>`・`<code>`・コメントの中に書いた `data-qa-id` は設問として数えない（書き方の説明を載せても件数が狂わない）。
+- 実施結果は `<meta name="ui-change" content="yes|no">` を必ず書く。画面・スタイル・リンク・入力の挙動を直したら `yes`、触っていなければ `no`。`yes` のときは本文に `figure.shot` か `video` を必ず置く（テンプレートに雛形のコメントがある）。`check-reports.py` がこの申告と現物の有無を見る。既存レポートには遡って求めない（新しく書くときだけ効く）。
+- 1 項目・1 セルは 1 行（目安 60 字）、段落（p）は 1 要素に 1 文まで。`check-reports.py` はスライド様式（`/assets/slide.css` を読むもの。`templates/` の雛形も対象にできる）の `p`・`li`・`dd`・`td` を見て、60 字超か「。」が 2 個以上（1 要素に 2 文以上）あれば警告を出す。`details`・`pre`・`code` の中と `div.qa` の `textarea` の中は対象外。**既定では警告だけで、終了コード・既存レポートの合否には影響しない。**判定表は `tests/test_check_reports_length.py`（`python3 tests/test_check_reports_length.py` で単体で走る）。
+- 書き終えたら `python3 bin/check-reports.py <ファイル>` を通す。
 
 ## 回答の待ち受け（AI 側）
 

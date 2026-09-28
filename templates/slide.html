@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>実施結果：レポートをスライド様式で出せるようにした（2026-08-27）</title>
+<link rel="stylesheet" href="/assets/slide.css">
+<!-- WBS タスクに紐付けるときだけ書く（プロジェクト名/番号）。紐付けないなら空のままでよい（消してもよい） -->
+<meta name="wbs" content="">
+<!-- 実施結果（p.eyebrow に「実施結果」を含む）だけ書く。画面・スタイル・リンク・入力の挙動を
+     直したら yes、触っていなければ no。yes のときは本文に figure.shot か video を必ず置く
+     （check-reports.py が申告と現物の有無を見る）。実施結果以外は消してよい -->
+<meta name="ui-change" content="">
+<!--
+  使い方: 1 枚ずつ送って見せるスライド様式のレポート。**すべてのレポートはこれで出す**（既定）。
+  設問が多いレポートもこれで出す。設問はその論点を説明した枚の中に置き、一覧（o キー）で
+  「設問 n」として見つけられる。縦スクロールの雛形へ落としてよいのは、長い表を 3 本以上載せるときだけ。
+
+  複製して reports/<プロジェクト>/<日付>_<名前>.html にリネームし、<section class="slide"> を並べ替える。
+  中身は静的な HTML のまま書くこと。設問（div.qa）や p.eyebrow を JS で組み立てると、
+  一覧の未回答件数と種別が拾えなくなる（サーバーは本文を文字列として読んでいる）。
+
+  枚数は合計 5 枚前後を目安にする。多すぎると要点が埋もれて読まれなくなるため、
+  まず 5 枚で言えないかを考える。1 枚 1 件で割った結果として増えるのは構わない
+  （説明が 2 枚＋設問が 2 枚、説明が 4 枚＋設問が 1 枚、どちらでもよい）。
+
+  書き方の上限（長文にしないための決め）
+    - 1 項目・1 セルは 1 行（目安 60 字。bin/check-reports.py が警告する）。2 行以上になりそうなら、
+      項目を割るか details.evidence / 付録へ回す。
+    - 括弧の補足・二重否定は書かない（「〜ではない、というわけではない」のような書き方をしない）。
+      言い切りで書く。
+    - 根拠（ログの抜粋・長い引用・数字の内訳）は本文に置かず、div.item.finding の中の
+      details.evidence に畳むか、section.slide.appendix へ回す。
+    - ID（SC-00-05・F-00-01・High-1 など）は単独で書かず、名前を添える
+      （例「SC-00-05 受注先への更新メール画面」）。通し番号だけでは、読む人がその場で
+      何のことか分からず調べる手間が生まれる。
+      名前を添えるのは各枚の初出だけでよい（2 回目以降は ID だけ）。ファイル名・パスの一部に
+      含まれる ID は対象外。指摘番号（High-1 など）は表紙の一覧で中身を示してあるので、本文から
+      参照するときは番号だけでよい。
+    - 1 文ごとに改行する（別の p か li にする）。「。」で文を続けない。2 文になるなら、
+      1 文目で p を閉じて 2 文目を新しい p にする。
+    - 項目が 3 つ以上並ぶ・属性を見比べるものは、文章ではなく罫線付きの表（table）にする。
+      table は縦横に罫線が入り、行の間隔も広めに取れる作りにしてある。
+
+  表紙は 2 型ある。**読む人に判断してほしい項目が 2 つ以上あるなら索引型、1 つなら結論型。**
+    結論型（section.slide.cover）……… 実施結果・調査など、結論が 1 つのもの。結論そのものを
+      h1 に 1 文だけ置く。レポート名や件数の見出しにしない。
+    索引型（section.slide.cover.index）… レビューなど、見てほしい項目が複数あるもの。
+      h1＝何の変更・何の話か（結論型より小さく 1 行に収める）、p.verdict＝判定 1 行
+      （例「マージ可否：<strong>High 3 件を直せば可</strong>」）、table.todo＝重さ・見てほしいこと・
+      枚番号への一覧を続けて置く。table.todo の 1 行は、指摘の枚 1 枚に対応する。表紙に載せるのは
+      High・Mid だけで、Low は行にせず「Low n 件（付録）」の 1 行にまとめる。指摘がゼロなら
+      table.todo は置かず、p.verdict に「指摘なし」と書く。
+
+  枚の並び（結論型のとき）
+    1. 表紙（section.slide.cover）
+    2. 要点 ………………………………… 3 つだけ。小見出し（div.point > h3）＋文章で書く。ここだけ読めば用が足りるように
+    3. 作ったものを開く ……………… リポジトリに文書・データ・生成物を作ったときだけ。現物へのリンクを並べる
+    4. 本編 ………………………………… 1 枚 1 件。記事 1 本・修正カード 1 枚・根拠 1 つ。内容次第で複数枚になってよい
+    5. 設問 ………………………………… 論点を説明した枚の中、または本編の最後（付録の前）に置く ask 枚。どちらでもよい
+    6. 確かめた観点 / 次にやること … 締め 1 枚
+
+  レビュー（索引型）のときの本編の枚の並びは、各レビュー役の定義（.claude/agents/juhachu-review-*.md・
+  .claude/rules/README.md）に従う。指摘カード（section.slide 内の div.item.finding）を使うときの
+  カードの中身は pill（重さ）→ h3（1 行の見出し）→ dl.fix（場所・問題・直し方を各 1 行）
+  → details.evidence（根拠は畳む）→ div.qa（対応可否）の順。**High は 1 件 1 枚**、
+  **Mid・Low は 1 枚にまとめてよい**（1 件ずつ枚を割ると枚数が膨らむため）。
+
+  章扉（section.slide.chapter）は、5 枚構成では基本使わない。章題と 1 行の予告を立てる枚で、
+  中身が 3 枚以上ある章を束ねたいときだけ使う（章立てが要るほど本編が増えたら、そもそもレポートを
+  2 本に分けられないかを先に考える）。
+
+  付録（section.slide.appendix）は、根拠・詳細な内訳・長いログ抜粋など、読まなくても結論には
+  たどり着けるが残しておきたいものを回す枚。本編より控えめな見た目にしてあるので、
+  本編の枚と混同しない。
+
+  設問の置き場所（重要）
+    設問は末尾へ回さない。問いの対象になっている枚の中に、その説明のすぐ下へ置く。
+    読む人が判断材料を見た流れのまま答えられるようにするため。1 枚に 3 問まで。
+    section.slide.ask は本編の最後（付録の前）に立て、そこに残してよいのは全体の可否を聞く 1 問だけ。
+    どの枚に設問があるかは一覧（o キー）に「設問 n」として出るので、散らばっても見つけられる。
+    設問は div.qa で書き、送信ボタンは書かない（answers.js が下端に 1 つだけ差し込む）。
+
+  data-title は一覧（o キー）に出る短い題。省くと見出しから拾う。
+  操作・進捗・一覧は /assets/slide.js が差し込む。ボタンを自分で書かないこと。
+  JS が動かないときは全枚が縦に並ぶ（読めなくなることはない）。
+
+  画面写真・動画を貼るときは、/r/<プロジェクト>/media/<ファイル> の絶対パスで参照する
+  （相対パスだと完了へ移したときにリンクが切れる）。
+
+  時系列のあるもの（操作の順序・状態が移り変わる話・何がいつ起きて何がどうなったか）は、
+  文章で並べずに表か mermaid の図にする。
+    - 分岐や合流が無く項目が並ぶだけ ……… 表
+    - 順序に分岐・合流・戻りがある ……… mermaid の図
+  mermaid は <pre class="mermaid"> …記法… </pre> で書く（class 名は固定。id は付けない）。
+  slide.js が図がある枚を検出したときだけ mermaid.min.js を読み込んで描画する
+  （図が無いレポートでは読み込まれない）。描画前・JS が動かないとき・描画に失敗したときは
+  記法の文字がそのまま読めるので、書いたテキストが失われることはない。
+
+  <pre class="mermaid">
+  sequenceDiagram
+    participant U as 申請者
+    participant A as 承認者
+    U->>A: 休暇申請を提出
+    A->>U: 差し戻し（理由あり）
+    U->>A: 修正して再提出
+    A->>U: 承認
+  </pre>
+
+  図に説明を詰め込みすぎない。図で示すのは順序と分岐だけにし、中身の説明（何が起きたか・
+  なぜそうしたか）は図の外側の本文に書く。
+
+  図は 1 枚に収まる大きさにする（実測して分かったこと：7 ノードの縦フローチャートで
+  枚の高さが 1881px に膨らみ、1 枚送りの様式なのに縦スクロールが要る状態になった）。
+    - 目安はノード 5 つ程度まで。超えるなら粒度が細かすぎるので、まとめられる段を 1 つにする。
+    - 縦（flowchart TD）で段数が増えるなら横（flowchart LR）にする。枚の幅は 1200px 程度
+      あるので、縦に伸びるより横のほうが収まりやすい。ラベルが長いものは <br> で折り返す。
+    - 描画が成功していることと、枚に収まっていることは別。図を書いたら実際に開いて
+      1 枚に収まっているかを確かめる（コンソールにエラーが出ないだけでは確認したことにならない）。
+-->
+</head>
+<body>
+
+<p class="back"><a href="./">← レポート一覧</a></p>
+
+<section class="slide cover" data-title="結論">
+  <p class="eyebrow">実施結果 ／ report_hub ／ 2026-08-27</p>
+  <h1>ここに結論を 1 文で書く</h1>
+  <p class="cover-meta">
+    何をしたのかを 2〜3 行。<br>
+    背景・対象・範囲のうち、読む人が最初に要るものだけ。
+  </p>
+</section>
+
+<!-- 索引型の表紙。レビューなど、見てほしい項目が複数あるレポートで使う（結論型の代わりに、この 1 枚だけを立てる）。
+     table.todo の 1 行は指摘の枚 1 枚に対応し、3 列目はその枚の id（例 #s6）へのリンクにする。
+     載せるのは High・Mid だけ。Low は行にせず「Low n 件（付録）」の 1 行にまとめる。
+     指摘がゼロならこの表自体を置かず、p.verdict に「指摘なし」と書く -->
+<section class="slide cover index" data-title="レビューの結論">
+  <p class="eyebrow">レビュー ／ report_hub ／ 2026-08-27</p>
+  <h1>ここに「何の変更・何の話か」を 1 行で書く</h1>
+  <p class="verdict">マージ可否：<strong>High 1 件を直せば可</strong></p>
+  <table class="todo">
+    <thead>
+      <tr><th>重さ</th><th>見てほしいこと</th><th>枚</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><span class="pill high">High</span></td><td>認可チェックが抜けている経路がある</td><td><a href="#s6">6</a></td></tr>
+      <tr><td><span class="pill mid">Mid</span></td><td>命名がリポジトリの規約と揃っていない</td><td><a href="#s6">6</a></td></tr>
+      <tr><td colspan="2">Low 1 件（付録）</td><td>—</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- 要点は点で並べず、小見出し（h3）＋文章にする。番号は CSS が振る -->
+<section class="slide" data-title="今日の要点">
+  <h2>要点</h2>
+  <div class="points">
+    <div class="point">
+      <h3>一番大事なことを、言い切りの一文で</h3>
+      <p>そのあとに理由か根拠を 1〜2 文。</p>
+      <p>ここで数字や固有名詞を出す。</p>
+    </div>
+    <div class="point">
+      <h3>二番目</h3>
+      <p>同じ形で書く。</p>
+      <p>見出しだけ読んで筋が通るように書く。</p>
+    </div>
+    <div class="point">
+      <h3>三番目</h3>
+      <p>3 つを超えたら要点ではない。</p>
+      <p>増えたなら本編の枚へ回す。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 項目が 3 つ以上並ぶ・属性を見比べるものは、文章ではなく罫線付きの表にする。
+     ID は単独で書かず、名前を添える（例「SC-19-05 受注先への更新メール画面」）。
+     table.todo（索引型の表紙が使う特殊な表）とは別の、一般の表の見本 -->
+<section class="slide" data-title="比較する表">
+  <h2>指摘の一覧</h2>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>対応</th><th>担当</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>High-1 認可チェックの抜け</td><td>対応する</td><td>実装担当</td></tr>
+      <tr><td>Mid-1 命名の不一致</td><td>対応しない</td><td>レビュー担当</td></tr>
+    </tbody>
+  </table>
+  <p>項目が 3 つ以上並ぶときや属性を見比べるときは、こうして表にする。</p>
+</section>
+
+<!-- リポジトリに文書・データ・生成物を作ったレポートでは、この枚を必ず置く。
+     リンク先は /d/<プロジェクト>/… のビューア URL（file:// は localhost のページから遷移できない）。
+     リンクの文字は文書の名前にする（パスを貼らない）。書いたら実際に押して開けることを確かめる。
+     何も作っていないレポート（調査だけ・相談だけ）ではこの枚を消す -->
+<section class="slide" data-title="作ったものを開く">
+  <h2>作ったものを開く</h2>
+  <ul class="links">
+    <li><strong>種別</strong> … <a href="/d/<プロジェクト>/<パス>.html">文書の名前</a>
+      ／ <a href="/d/<プロジェクト>/<パス>.html">もう 1 本</a></li>
+    <li><strong>参照した既存の文書</strong> … <a href="/d/<プロジェクト>/<パス>.html">名前</a></li>
+  </ul>
+  <p class="foot">開いた先で何ができるかを 1 行。無ければ消す。</p>
+</section>
+
+<!-- 本編の枚。説明したその場で判断を仰ぐときは、この枚の中に div.qa を置く。
+     div.change の span は tag → from → arrow → tag to → to の順で書くこと。
+     CSS が文書順で列を割り当てるので、入れ替えると本文がラベル欄に入って崩れる -->
+<section class="slide" data-title="レポート一覧の見え方">
+  <div class="change">
+    <h3>レポート一覧</h3>
+    <span class="tag">いま</span>
+    <span class="from">レポート名と更新時刻が並ぶだけで、未回答があるか開くまで分からない</span>
+    <span class="arrow" aria-hidden="true">↓</span>
+    <span class="tag to">こうした</span>
+    <span class="to">答え待ちを上に集めた 1 本のリストにし、未回答と経過日数を各行に出す</span>
+  </div>
+  <p class="foot">補足があればここに 1〜2 行。</p>
+  <p class="foot">実装の話（関数名・行番号・差分）は書かない。</p>
+
+  <div class="qa" data-qa-id="slide-inline-1" data-question="この変更をこのまま進めるか">
+    <h3>この直し方でよいか</h3>
+    <p class="why">判断の材料になる事実を 1〜2 行。</p>
+    <p class="why">上のカードで説明したことは繰り返さない。</p>
+    <label><input type="radio" name="choice" value="進める">進める</label>
+    <label><input type="radio" name="choice" value="差し戻す">差し戻す</label>
+    <textarea name="note" placeholder="補足（任意）"></textarea>
+  </div>
+</section>
+
+<!-- レビューの指摘カード（div.item.finding）。High は 1 件 1 枚、Mid・Low は 1 枚にまとめてよい。
+     dl.fix の dt/dd は各 1 行、根拠（ログ・差分・長い引用）は details.evidence に畳む。
+     div.qa は指摘ごとに置く -->
+<section class="slide" id="s6" data-title="指摘：認可チェックの抜け">
+  <h2>指摘</h2>
+  <div class="item finding high">
+    <span class="pill high">High</span>
+    <h3>一覧 API に認可チェックが無い</h3>
+    <dl class="fix">
+      <dt>場所</dt><dd><code>OrderListView.get_queryset</code></dd>
+      <dt>問題</dt><dd>テナント ID の絞り込みを RLS だけに任せており、明示チェックが無い</dd>
+      <dt>直し方</dt><dd>他のビューと同じく、リクエストのテナントと一致するかを先頭で確認する</dd>
+    </dl>
+    <details class="evidence">
+      <summary>根拠を見る</summary>
+      <p>他の一覧系ビューはすべて <code>check_tenant()</code> を呼んでいるが、このビューだけ抜けている。</p>
+    </details>
+    <div class="qa" data-qa-id="slide-finding-1" data-question="この指摘へ対応するか">
+      <h3>この指摘へ対応するか</h3>
+      <label><input type="radio" name="choice" value="対応する">対応する</label>
+      <label><input type="radio" name="choice" value="対応しない">対応しない</label>
+      <textarea name="note" placeholder="補足（任意）"></textarea>
+    </div>
+  </div>
+</section>
+
+<!-- 画面写真を貼る枚を立てるときは、本編の枚に div.shots > figure.shot を足すか、
+     章立てで別枚にする（figure.shot > img の src は /r/<プロジェクト>/media/<ファイル> の絶対パス、
+     figcaption は「何の画面の、どこを見てほしいか」を 1 行）。
+     本編の最後（付録の前）に置く ask 枚に残してよいのは、全体の可否を聞く 1 問だけ。
+     個別の論点は、その論点を説明した枚の中へ置くこと -->
+<section class="slide ask" data-title="設問：全体の可否">
+  <h2>全体として</h2>
+  <div class="qa" data-qa-id="slide-overall" data-question="全体としてこの内容で進めてよいか">
+    <h3>この内容で進めてよいか</h3>
+    <p class="why">個別の論点は各枚で聞いている。</p>
+    <p class="why">ここは全体の可否だけ。</p>
+    <label><input type="radio" name="choice" value="進める">進める</label>
+    <label><input type="radio" name="choice" value="差し戻す">差し戻す</label>
+    <textarea name="note" placeholder="補足（任意）"></textarea>
+  </div>
+</section>
+
+<!-- 付録。根拠・詳細な内訳など、無くても結論には辿り着けるが残しておきたいものを回す枚。
+     本編より控えめな見た目になる（見出しの前に「付録」と出て、文字色が落ちる） -->
+<section class="slide appendix" data-title="付録：内訳">
+  <h2>指摘の内訳</h2>
+  <p>本編で畳んだ根拠のうち、長いものをここへ回す。</p>
+  <p>件数・手順・コマンド出力はここでも書かない。</p>
+</section>
+
+<section class="slide" data-title="確かめた観点">
+  <h2>確かめた観点</h2>
+  <ul class="aspects">
+    <li>何を見たかだけを短く並べる</li>
+    <li>件数・秒数・手順・コマンド・テスト出力は書かない</li>
+    <li>別のエージェントにレビューを出したなら、それも観点の 1 つとして入れる</li>
+  </ul>
+</section>
+
+<script src="/assets/slide.js"></script>
+<script src="/assets/answers.js"></script>
+</body>
+</html>

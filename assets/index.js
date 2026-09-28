@@ -30,6 +30,11 @@
       row.hidden = !ok
       if (ok && !row.dataset.done) shown += 1
     }
+    // 束は、中身が 1 件も残らなければ見出しごと引っ込める（見出しだけが浮かないように）
+    for (const group of document.querySelectorAll('.task-group')) {
+      group.hidden = !Array.from(group.querySelectorAll('.row')).some((r) => !r.hidden)
+    }
+
     // 完了は「すべて」のときだけ畳んだまま置いておく
     const done = document.querySelector('details.done')
     if (done) done.hidden = state.tab !== 'all'

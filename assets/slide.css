@@ -1,0 +1,531 @@
+/* スライド様式のレポート。テンプレート（templates/slide.html）から
+ * <link rel="stylesheet" href="/assets/slide.css"> と <script src="/assets/slide.js"> で読む。
+ *
+ * 見立ては report.css と同じ「コルクボードに留めた紙」。違うのは枚数で、
+ * 縦に長い 1 枚ではなく、1 枚ずつ留め替えて見せる。
+ *
+ * 構成
+ *   1. 土台（コルクの地・紙の面・テープ）
+ *   2. スライド 1 枚の中身（表紙・章扉・本編）
+ *   3. 操作（進捗・送り・一覧）
+ *   4. 確認事項（answers.js が使う .qa の見た目）
+ *   5. 連続表示と印刷（JS が動かないときの見え方でもある）
+ *
+ * JS が動くまでは全スライドが縦に並んだ「連続表示」で、slide.js が
+ * <html> に .deck-on を付けた時点で 1 枚ずつの表示に切り替わる。
+ * つまり JS を切っていても全文が読める。
+ */
+@import url("/assets/tokens.css");
+
+/* ── 1. 土台 ───────────────────────────────────────── */
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 3rem 2rem 5rem;
+  background: var(--paper-texture) var(--paper);
+  background-size: var(--paper-texture-size);
+  color: var(--ink);
+  font-family: var(--body);
+  line-height: 1.85;
+  font-size: 1rem;
+}
+
+.slide {
+  position: relative;
+  /* 画面幅を使い切る。上限だけ置いて、狭い画面では画面に合わせる */
+  width: min(96vw, 90rem);
+  max-width: 100%;
+  margin: 0 auto 2.6rem;
+  padding: 3rem 4rem 2.6rem;
+  background: var(--card);
+  box-shadow: var(--lift-sheet);
+  border-radius: 2px;
+}
+
+/* 上端のテープ。章扉と表紙は色を変えて、めくった感じを出す */
+.slide::before {
+  content: ""; position: absolute; top: -.7rem; left: 50%;
+  width: 7.5rem; height: 1.5rem; margin-left: -3.75rem;
+  background: var(--tape); border-left: 1px solid var(--tape-edge);
+  border-right: 1px solid var(--tape-edge);
+  transform: rotate(-1.2deg);
+}
+.slide:nth-of-type(even)::before { transform: rotate(1.4deg); }
+.slide.cover::before { background: var(--tape-new); }
+.slide.chapter::before { background: var(--tape-done); }
+.slide.ask::before { background: var(--tape-open); }
+
+/* ── 2. スライド 1 枚の中身 ─────────────────────────── */
+
+.slide > :first-child { margin-top: 0; }
+.slide > :last-child { margin-bottom: 0; }
+
+.eyebrow {
+  margin: 0 0 1.1rem; font-size: .82rem; letter-spacing: .06em;
+  color: var(--ink-soft); text-transform: none;
+}
+
+/* 表紙。結論そのものを大きく 1 文だけ置く */
+.slide.cover {
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 4rem 3.2rem;
+}
+.slide.cover h1 {
+  font-family: var(--display);
+  font-size: clamp(1.7rem, 4.6vw, 2.9rem);
+  line-height: 1.42; margin: 0 0 1.6rem; font-weight: 700;
+}
+.cover-meta {
+  margin: 0; padding-top: 1.2rem; border-top: 1px solid var(--line-soft);
+  color: var(--ink-soft); font-size: .9rem; line-height: 1.9;
+}
+
+/* 索引型の表紙（レビューなど、見てほしい項目が複数あるとき）。
+   結論型より h1 を小さくし、判定 1 行と一覧を続けて置く */
+.slide.cover.index h1 {
+  font-size: clamp(1.4rem, 3vw, 2rem); line-height: 1.5; margin-bottom: 1.1rem;
+}
+.slide.cover.index p.verdict {
+  margin: 0 0 1.4rem; font-size: 1.15rem;
+}
+table.todo {
+  width: 100%; table-layout: fixed; border-collapse: collapse; margin: 0; font-size: 1rem;
+  border: 1px solid var(--line);
+}
+table.todo th, table.todo td {
+  padding: .6rem .8rem; border: 1px solid var(--line); text-align: left;
+}
+table.todo th {
+  background: var(--sunk); color: var(--ink-soft); font-size: .82rem;
+  font-weight: 600; white-space: nowrap;
+}
+table.todo th:first-child, table.todo td:first-child,
+table.todo th:last-child, table.todo td:last-child {
+  width: 5.5rem; text-align: center; white-space: nowrap;
+}
+table.todo td:nth-child(2) { overflow-wrap: anywhere; white-space: normal; }
+
+/* 狭い画面では左右列を詰めて、中央列（見てほしいこと）に幅を残す。
+   セルの余白と pill の余白も詰め、3.2rem の中に pill が収まるようにする */
+@media (max-width: 600px) {
+  table.todo th, table.todo td { padding: .5rem .35rem; }
+  table.todo th:first-child, table.todo td:first-child { width: 3.2rem; }
+  table.todo th:last-child, table.todo td:last-child { width: 2.4rem; }
+  table.todo td:first-child .pill { padding: .12em .35em; font-size: .72rem; }
+}
+
+/* 一般の表（table.todo 以外）。項目を 3 つ以上並べる・属性を見比べるときに使う。
+   縦横の罫線を引き、セルの余白と行の間隔を広めに取って読み間違えにくくする。
+   見出し行は地の色を変えて本文行と区別する。
+   広い画面では表のまま横幅いっぱいに広げる（display: block にすると行が枠いっぱいに伸びず、
+   右に枠だけの空白が残る）。狭い画面でだけ横スクロールのブロックにしてはみ出させない */
+.slide table:not(.todo) {
+  width: 100%; border-collapse: collapse; margin: 0 0 1.3rem; font-size: .95rem;
+  border: 1px solid var(--line);
+}
+.slide table:not(.todo) th, .slide table:not(.todo) td {
+  padding: .6rem .8rem; border: 1px solid var(--line); text-align: left;
+  vertical-align: top;
+}
+.slide table:not(.todo) thead th,
+.slide table:not(.todo) tr:first-child > th {
+  background: var(--sunk); color: var(--ink-soft); font-weight: 600; white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .slide table:not(.todo) { display: block; overflow-x: auto; max-width: 100%; }
+  .slide table:not(.todo) th, .slide table:not(.todo) td { padding: .5rem .6rem; }
+}
+
+/* 章扉。章題だけ。次に何の話が来るかを 1 行で予告する */
+.slide.chapter {
+  display: flex; flex-direction: column; justify-content: center;
+  min-height: 34vh; padding: 3.4rem 3.2rem;
+}
+.slide.chapter h2 {
+  font-family: var(--display); font-size: clamp(1.4rem, 3.4vw, 2.1rem);
+  margin: 0; border: 0; padding: 0;
+}
+.slide.chapter .chapter-note { margin: .9rem 0 0; color: var(--ink-soft); }
+
+/* 本編 */
+.slide h2 {
+  font-family: var(--display); font-size: 1.35rem; margin: 0 0 1.2rem;
+  padding-bottom: .5rem; border-bottom: 1px solid var(--line-soft);
+}
+.slide h3 {
+  font-family: var(--display); font-size: 1.22rem; line-height: 1.55;
+  margin: 0 0 .6rem;
+}
+.slide h3 a { color: inherit; text-decoration: none; border-bottom: 1px solid var(--line); }
+.slide h3 a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+.slide p { margin: 0 0 1rem; max-width: 42em; }
+.slide a { color: var(--accent); }
+
+/* 1 行の長さに上限を置く。表のセルにはほぼ効かない（列幅で決まるため）ので対象にしない */
+.slide li { max-width: 42em; }
+.slide table th { text-align: left; white-space: nowrap; }
+
+/* 付録の枚。控えめさは「付録」の印・h2 の色・背景の違いだけで出す。
+   本文・表は通常の ink のままにする（薄くすると読めなくなるため） */
+.slide.appendix { background: var(--sunk); }
+.slide.appendix h2 { color: var(--ink-soft); }
+.slide.appendix h2::before {
+  content: "付録"; display: block; margin-bottom: .4rem;
+  font-family: var(--body); font-size: .74rem; letter-spacing: .1em;
+  color: var(--ink-soft);
+}
+
+.lede { font-size: 1.05rem; color: var(--ink-soft); }
+
+.meta { margin: 0 0 1rem; font-size: .85rem; color: var(--ink-soft); }
+
+.foot {
+  margin: 1.4rem 0 0; padding: .9rem 1.1rem; background: var(--sunk);
+  border-left: 3px solid var(--tape-edge); border-radius: 2px;
+  font-size: .92rem; color: var(--ink-soft);
+}
+
+.pill {
+  display: inline-block; padding: .12em .7em; border-radius: 999px;
+  font-size: .78rem; background: var(--accent-soft); color: var(--accent);
+  border: 1px solid rgb(47 107 143 / .25); vertical-align: .05em;
+}
+.pill.new { background: var(--tape-new); color: #1c4a63; border-color: rgb(28 74 99 / .2); }
+.pill.open { background: var(--tape-open); color: #8a3a18; border-color: rgb(138 58 24 / .2); }
+.pill.done { background: var(--tape-done); color: #35602c; border-color: rgb(53 96 44 / .2); }
+/* 重さ（レビューの指摘・懸念点）。report.css の .pill.high/.mid/.low と同じ配色に揃える */
+.pill.high { background: rgb(192 74 47 / .12); color: var(--crit); border-color: rgb(192 74 47 / .3); }
+.pill.mid { background: rgb(150 99 26 / .12); color: var(--warn); border-color: rgb(150 99 26 / .3); }
+.pill.low { background: var(--sunk); color: var(--ink-soft); border-color: var(--line); }
+
+/* レビューの指摘カード（div.item.finding）1 件ぶんのかたまり。
+   report.css の .item と見た目を揃えるが、スライドの紙面（.slide 自体が既に 1 枚の紙）の中に
+   置くので、テープ・回転は付けず、左の帯だけで区別する。
+   .item.finding にだけ効くよう絞ってある（div.item は設問を囲む器としても使われており、
+   .item 自体に見た目を持たせると既存のスライドレポートの見え方が変わってしまうため） */
+.item.finding {
+  background: var(--sunk); border: 1px solid var(--line-soft); border-radius: 4px;
+  padding: 1.1rem 1.2rem; margin: 0 0 1.2rem;
+}
+.item.finding:last-child { margin-bottom: 0; }
+.item.finding > h3 { margin: 0 0 .5rem; font-size: 1.1rem; }
+.item.finding > .pill { margin-bottom: .5rem; }
+.item.finding.high { border-left: 4px solid var(--crit); }
+.item.finding.mid { border-left: 4px solid var(--warn); }
+.item.finding.low { border-left: 4px solid var(--line); }
+/* 枠の中の確認事項は地を紙に戻し、答える場所だと分かるようにする */
+.item.finding > .qa { background: var(--card); }
+
+/* レビューの指摘カード（div.item.finding）。並びは pill → h3 → dl.fix → details.evidence → div.qa。
+   1 項目・1 セルは 1 行で書く前提（書き方の上限はテンプレートのコメントを見よ） */
+.item.finding dl.fix {
+  display: grid; grid-template-columns: 5.5rem 1fr; gap: .45rem .9rem;
+  margin: 0; font-size: .95rem;
+}
+.item.finding dl.fix dt {
+  color: var(--ink-soft); font-size: .82rem; padding-top: .1rem;
+}
+.item.finding dl.fix dd {
+  margin: 0; white-space: normal; overflow-wrap: anywhere;
+}
+.item.finding dl.fix + details.evidence { margin-top: .9rem; }
+
+/* 狭い画面では dt を dd の上に積む 1 列にする（横に並べると dd が細くなりすぎるため） */
+@media (max-width: 600px) {
+  .item.finding dl.fix { grid-template-columns: 1fr; gap: 0; }
+  .item.finding dl.fix dt { margin-top: .6rem; }
+  .item.finding dl.fix dt:first-child { margin-top: 0; }
+  .item.finding dl.fix dd { margin-top: .15rem; }
+}
+
+/* 根拠は畳んでおき、開いたときだけ見える。閉じた状態は 1 行で目立たせない */
+details.evidence {
+  margin: 0; font-size: .88rem; color: var(--ink-soft);
+}
+details.evidence summary {
+  cursor: pointer; list-style: none; display: inline-block;
+  padding: .15em .1em; border-bottom: 1px dotted var(--line);
+}
+details.evidence summary::-webkit-details-marker { display: none; }
+details.evidence summary::before { content: "▸ "; }
+details.evidence[open] summary::before { content: "▾ "; }
+details.evidence[open] { margin-bottom: .3rem; }
+details.evidence p, details.evidence pre { margin: .6rem 0 0; }
+
+/* 要点。1 行で終わらない話を並べるときは、点ではなく小見出し＋文章にする。
+   点で並べると、どれが主張でどれが根拠なのか読み取れなくなる */
+.points { counter-reset: point; margin: .6rem 0 0; }
+.point { counter-increment: point; margin: 0 0 2.4rem; padding-left: 3.6rem; position: relative; }
+.point:last-child { margin-bottom: 0; }
+.point::before {
+  content: counter(point);
+  position: absolute; left: 0; top: -.16em;
+  font-family: var(--display); font-size: 2.1rem; font-weight: 700;
+  color: var(--accent); line-height: 1;
+}
+.point h3 { margin: 0 0 .45rem; font-size: 1.18rem; }
+.point p { margin: 0; color: var(--ink-soft); font-size: 1.02rem; }
+
+.aspects { margin: 0; padding-left: 1.3rem; }
+.aspects li { margin-bottom: .5rem; }
+
+code {
+  font-family: var(--mono); font-size: .85em; background: var(--sunk);
+  padding: .1em .35em; border-radius: 3px;
+}
+
+/* 「いま」→「こうした」のカード。report.css の div.change と同じ書き方が通る */
+.change {
+  display: grid; grid-template-columns: auto 1fr; gap: .5rem .8rem;
+  align-items: start; margin: 0 0 1.2rem; padding: 1.1rem 1.2rem;
+  background: var(--sunk); border-radius: 3px;
+}
+.change h3 { grid-column: 1 / -1; margin: 0 0 .3rem; }
+.change .tag {
+  font-size: .74rem; padding: .1em .6em; border-radius: 999px;
+  background: var(--card); border: 1px solid var(--line); color: var(--ink-soft);
+  white-space: nowrap;
+}
+.change .tag.to { background: var(--tape-done); border-color: rgb(53 96 44 / .25); color: #35602c; }
+.change .arrow { grid-column: 1 / -1; color: var(--ink-soft); }
+
+/* 画面写真。1 枚を大きく見せる */
+.shots { display: grid; grid-template-columns: 1fr; gap: 1.2rem; margin: 0; }
+.shot { margin: 0; }
+.shot img, .shot video { width: 100%; border: 1px solid var(--line); border-radius: 3px; background: var(--sunk); }
+.shot figcaption { margin-top: .5rem; font-size: .88rem; color: var(--ink-soft); }
+
+.back { position: fixed; top: .8rem; left: 1rem; font-size: .85rem; z-index: 40; }
+.back a { color: var(--ink-soft); text-decoration: none; background: var(--card);
+  padding: .25rem .7rem; border-radius: 999px; box-shadow: var(--lift); }
+.back a:hover { color: var(--accent); }
+
+/* ── 3. 操作 ───────────────────────────────────────── */
+
+/* 進捗バーと現在位置はひと続きの部品として上端中央に置く。
+   バーが上端いっぱいに伸び、その真ん中からページ数がぶら下がる */
+.deck-progress-track {
+  position: fixed; top: 0; left: 0; right: 0; height: 7px;
+  background: var(--line-soft); z-index: 44;
+}
+.deck-progress {
+  position: fixed; top: 0; left: 0; height: 7px; width: 0;
+  background: var(--accent); z-index: 45; transition: width .18s ease-out;
+  box-shadow: 0 1px 4px rgb(58 38 18 / .28);
+}
+
+.deck-nav {
+  position: fixed; top: 7px; left: 50%; transform: translateX(-50%); z-index: 46;
+  display: flex; align-items: center; gap: .2rem;
+  background: var(--card); padding: .25rem .7rem .35rem;
+  /* 上辺はバーに接するので角を落とし、下側だけ丸めてぶら下がって見せる */
+  border-radius: 0 0 12px 12px;
+  border: 1px solid var(--line-soft); border-top: 0;
+  box-shadow: var(--lift); font-size: 1rem;
+}
+.deck-nav button {
+  border: 0; background: transparent; color: var(--ink-soft);
+  font: inherit; cursor: pointer; padding: .2rem .55rem; border-radius: 999px;
+  line-height: 1.6;
+}
+.deck-nav button:hover { background: var(--sunk); color: var(--accent); }
+.deck-nav button[disabled] { opacity: .3; cursor: default; background: transparent; }
+/* 現在位置。いま何枚目かは常に読めるようにする（総数より現在を大きく） */
+.deck-count {
+  padding: 0 .45rem; color: var(--ink-soft); font-variant-numeric: tabular-nums;
+  font-family: var(--display); letter-spacing: .02em; line-height: 1.2;
+}
+.deck-count .now { font-size: 1.45rem; font-weight: 700; color: var(--accent); }
+.deck-count .of { font-size: .88rem; }
+
+.deck-hint {
+  position: fixed; bottom: .7rem; left: 50%; transform: translateX(-50%);
+  z-index: 40; font-size: .78rem; color: var(--ink-soft);
+  background: rgb(255 253 244 / .82); padding: .2rem .8rem; border-radius: 999px;
+  pointer-events: none; transition: opacity .4s; 
+}
+.deck-hint.is-faded { opacity: 0; }
+
+/* 一覧（o キー）。中身は縮小せず見出しだけ並べる。探すのに要るのは題だけ */
+.deck-map {
+  position: fixed; inset: 0; z-index: 60; overflow-y: auto;
+  background: var(--paper-texture) var(--paper);
+  background-size: var(--paper-texture-size);
+  padding: 3.5rem 1.2rem 3rem;
+}
+.deck-map-inner { width: min(92vw, 64rem); margin: 0 auto; }
+.deck-map h2 { font-family: var(--display); margin: 0 0 1.2rem; font-size: 1.2rem; }
+.deck-map ol { list-style: none; margin: 0; padding: 0; }
+.deck-map li { margin-bottom: .4rem; }
+.deck-map button {
+  display: flex; gap: .9rem; width: 100%; text-align: left; cursor: pointer;
+  border: 0; border-radius: 3px; background: var(--card); color: var(--ink);
+  font: inherit; padding: .7rem 1rem; box-shadow: var(--lift-in);
+}
+.deck-map button:hover { background: var(--sunk); }
+.deck-map button.is-current { outline: 2px solid var(--accent); }
+.deck-map .n { color: var(--ink-soft); font-variant-numeric: tabular-nums; min-width: 2ch; }
+.deck-map .k { color: var(--ink-soft); font-size: .8rem; margin-left: auto; white-space: nowrap; }
+.deck-map button:has(.k) { background: var(--sunk); font-weight: 600; }
+
+/* ── 4. 確認事項（answers.js が使う） ───────────────── */
+
+/* 確認事項。末尾へ集めず、問いの対象になっている枚の中に置く。
+   本文と地続きに見えないよう、左端に色を入れて「ここは問い」と分かるようにする */
+.qa {
+  margin: 1.4rem 0 0; padding: 1.2rem 1.3rem; background: var(--sunk);
+  border-radius: 3px; border: 1px solid var(--line-soft);
+  border-left: 3px solid var(--accent);
+}
+.qa + .qa { margin-top: 1rem; }
+.qa .why { margin: 0 0 .9rem; color: var(--ink-soft); font-size: .93rem; }
+.qa label {
+  display: block; padding: .5rem .7rem; margin-bottom: .35rem; cursor: pointer;
+  background: var(--card); border: 1px solid var(--line-soft); border-radius: 3px;
+}
+.qa label:hover { border-color: var(--accent); }
+.qa input[type="radio"] { margin-right: .55rem; }
+.qa textarea {
+  width: 100%; min-height: 4.2rem; margin-top: .5rem; padding: .6rem .7rem;
+  font: inherit; color: var(--ink); background: var(--card);
+  border: 1px solid var(--line-soft); border-radius: 3px; resize: vertical;
+}
+.qa button[type="submit"], .qa .qa-send { display: none; }
+.qa-status { margin: .6rem 0 0; font-size: .88rem; color: var(--good); }
+
+.qa-bar {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+  display: flex; align-items: center; gap: .8rem;
+  padding: .7rem 1.2rem; background: var(--card);
+  border-top: 1px solid var(--line); box-shadow: 0 -3px 10px rgb(58 38 18 / .16);
+}
+.qa-bar-count { color: var(--ink-soft); font-size: .9rem; }
+.qa-bar-count.is-open { color: var(--crit); cursor: pointer; text-decoration: underline dotted; }
+.qa-bar-message { color: var(--ink-soft); font-size: .9rem; }
+.qa-bar button {
+  margin-left: auto; font: inherit; cursor: pointer; padding: .45rem 1.4rem;
+  border: 0; border-radius: 999px; background: var(--accent); color: #fff;
+}
+.qa-bar button[disabled] { opacity: .45; cursor: default; }
+
+/* 未回答が残ったまま「回答する」を押したときの確認。
+ * ブラウザの confirm() ではなく <dialog> にしてある（拡張から操作しているとき固まるため）。
+ * answers.js が差し込むので、レポート側に書くことは無い。 */
+.qa-confirm {
+  border: 1px solid var(--line); border-radius: 4px;
+  background: var(--card); color: var(--ink);
+  padding: 1.4rem 1.6rem; max-width: 32rem; width: calc(100% - 2rem);
+  box-shadow: 0 8px 28px rgb(58 38 18 / .28);
+}
+.qa-confirm::backdrop { background: rgb(42 32 22 / .45); }
+.qa-confirm h3 { margin: 0 0 .7rem; font-size: 1.05rem; color: var(--crit); }
+.qa-confirm ul {
+  margin: 0 0 1.2rem; padding-left: 1.2rem;
+  font-size: .9rem; color: var(--ink-soft); line-height: 1.7;
+}
+.qa-confirm-actions { display: flex; gap: .7rem; justify-content: flex-end; }
+.qa-confirm-actions button {
+  font: inherit; font-size: .9rem; padding: .45rem 1.2rem; cursor: pointer;
+  border-radius: 999px;
+}
+.qa-confirm-actions .is-back {
+  border: 1px solid var(--line); background: var(--sunk); color: var(--ink);
+}
+.qa-confirm-actions .is-send {
+  border: 1px solid var(--accent); background: var(--accent); color: #fff;
+}
+.qa-confirm-actions button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* 回答バーが出ているときは、下端の目安を隠して重なりを避ける */
+body:has(.qa-bar) .deck-hint { display: none; }
+
+/* mermaid の図（時系列・分岐の説明）。slide.js が <pre class="mermaid"> を
+   描画後に置き換える .mermaid-rendered の見た目。幅の広い図は枚の中で
+   横スクロールさせ、はみ出させない（すぼめて潰さない）。
+   描画前・失敗時は下の .slide pre がそのまま効くので、元のテキストが読める */
+.mermaid-rendered {
+  margin: 0 0 1.2rem; padding: 1rem 1.1rem;
+  background: var(--sunk); border: 1px solid var(--line-soft); border-radius: 4px;
+  overflow-x: auto;
+}
+.mermaid-rendered svg { display: block; margin: 0 auto; }
+
+/* 手順書のコード塊。report.css の pre と同じ見た目に揃える */
+.slide pre {
+  font-family: var(--mono); font-size: .82rem; line-height: 1.6; margin: 0 0 1rem;
+  background: var(--sunk); border: 1px solid var(--line-soft); border-radius: 4px;
+  padding: .9rem 1rem; overflow-x: auto;
+}
+.slide pre code { background: none; padding: 0; font-size: inherit; }
+
+/* 手順書・テスト手順。1 手順 1 操作で、番号は CSS が振る（本文に番号を書かせない）。
+   .where=どこで／.do=操作／.ok=済んだ目印／.ng=うまくいかないとき。 */
+.slide ol.steps {
+  counter-reset: step;
+  list-style: none;
+  margin: 0 0 1.4rem;
+  padding: 0;
+}
+.slide ol.steps > li {
+  counter-increment: step;
+  position: relative;
+  margin: 0 0 1.1rem;
+  padding: 0 0 0 3.1rem;
+}
+.slide ol.steps > li:last-child { margin-bottom: 0; }
+.slide ol.steps > li::before {
+  content: counter(step);
+  position: absolute; left: 0; top: 0;
+  width: 2.1rem; height: 2.1rem;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--display); font-size: .95rem; font-weight: 700;
+  color: var(--accent); background: var(--accent-soft);
+  border: 1px solid rgb(47 107 143 / .25); border-radius: 999px;
+}
+.slide ol.steps .where {
+  display: inline-block; margin: 0 0 .25rem;
+  font-family: var(--mono); font-size: .72rem; letter-spacing: .02em;
+  padding: .1em .6em; border-radius: 999px;
+  background: var(--sunk); border: 1px solid var(--line); color: var(--ink-soft);
+}
+.slide ol.steps .do { margin: 0; font-size: 1rem; }
+.slide ol.steps .ok,
+.slide ol.steps .ng { margin: .3rem 0 0; font-size: .88rem; color: var(--ink-soft); }
+.slide ol.steps .ok::before {
+  content: "✓"; margin-right: .45em; color: #35602c; font-weight: 700;
+}
+.slide ol.steps .ng::before {
+  content: "△"; margin-right: .45em; color: #8a3a18; font-weight: 700;
+}
+
+/* ── 5. 1 枚ずつの表示 ─────────────────────────────── */
+
+/* ここから下は JS が動いたときだけ効く。既定（JS 無し・印刷）は連続表示。 */
+.deck-on body { padding-top: 4.4rem; }
+.deck-on .slide { display: none; margin-bottom: 0; min-height: 78vh; }
+.deck-on .slide.is-current { display: block; }
+.deck-on .slide.chapter.is-current, .deck-on .slide.cover.is-current { display: flex; }
+.deck-on.deck-flow .slide { display: block; margin-bottom: 2.6rem; min-height: 0; }
+.deck-on.deck-flow .slide.chapter, .deck-on.deck-flow .slide.cover { display: flex; }
+.deck-on.deck-flow .deck-progress { display: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .deck-on .slide.is-current { animation: deck-in .22s ease-out; }
+}
+@keyframes deck-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 40rem) {
+  .slide { padding: 2.2rem 1.3rem 1.8rem; }
+  .slide.cover { padding: 3rem 1.3rem 2.2rem; }
+  .deck-hint { display: none; }
+}
+
+@media print {
+  body { padding: 0; background: #fff; }
+  .slide { display: block !important; box-shadow: none; break-inside: avoid;
+    page-break-after: always; max-width: none; margin: 0; min-height: 0; }
+  .slide::before, .deck-nav, .deck-progress, .deck-hint, .back, .qa-bar { display: none !important; }
+}

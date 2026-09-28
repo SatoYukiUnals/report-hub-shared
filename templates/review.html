@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>レビュー：勤怠集計バッチの実装レビュー（2026-08-05）</title>
 <link rel="stylesheet" href="/assets/report.css">
+<!-- WBS タスクに紐付けるときだけ書く（プロジェクト名/番号）。紐付けないなら空のままでよい（消してもよい） -->
+<meta name="wbs" content="">
+<!--
+  ⚠ この雛形は使わない。レポートはすべてスライド（templates/slide.html）で出す。
+  これは過去に出した縦スクロールのレポートを読むために残してあるだけ。
+  複製すると python3 bin/check-reports.py <ファイル> が弾く。
+-->
 <!--
   使い方: コードレビューやドキュメントレビューの指摘一覧を報告するときに使う。
   複製して reports/<プロジェクト>/<日付>_<名前>.html にリネームし、対象・観点・指摘内容を実情に合わせて書き換える。

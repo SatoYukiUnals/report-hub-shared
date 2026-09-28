@@ -1,28 +1,52 @@
-/* 配色と書体の定義。一覧（/assets/index.css）とレポート本体（/assets/report.css）が
- * どちらもここを読む。色を変えるときはこのファイルだけを直す。
+/* 配色と書体の定義。一覧（/assets/index.css）・レポート本体（/assets/report.css）・
+ * 技術フィード（/assets/feed.css）・成果物ビューア（/assets/doc.css）・
+ * 共通サイドバー（/assets/nav.css）がどれもここを読む。色を変えるときはこのファイルだけを直す。
  *
- * 紙面トーン：白ではなく温かみのあるオフホワイトを地にして、見出しをセリフで組む。
+ * 見立て：コルクボードに紙をマスキングテープで留めた掲示板。
+ *   地  = コルク（粒の見える褐色）
+ *   面  = 紙（わずかに黄みのある白）
+ *   装飾 = テープ。留めるものの種類で色を変える（未回答・新着・完了）
+ * 状態は色だけでなく「テープが貼られているか」でも分かるようにする。
  * OS がダークモードでも暗転させない（読み物として一定の見え方を保つ）。
  */
 :root {
   color-scheme: light;
 
   /* 地と面 */
-  --paper: #f4f1eb;      /* ページの地 */
-  --card: #fffdf9;       /* 箱・カードの面 */
-  --sunk: #ebe7df;       /* 入力欄など一段沈めた面 */
+  --paper: #d9b98c;      /* コルクの地 */
+  --card: #fffdf4;       /* 紙。箱・カード・レポート本体の面 */
+  --sunk: #f6efdd;       /* 入力欄など一段沈めた面 */
+
+  /* コルクの粒。地を敷くときは background に texture を重ねて使う */
+  --paper-dot: rgb(122 92 52 / .22);
+  --paper-texture: radial-gradient(var(--paper-dot) 1.6px, transparent 1.7px);
+  --paper-texture-size: 9px 9px;
 
   /* 文字 */
-  --ink: #23201b;        /* 本文 */
-  --ink-soft: #6b6459;   /* 補足・メタ情報 */
-  --line: #ded7cb;       /* 罫線 */
+  --ink: #2a2016;        /* 本文 */
+  --ink-soft: #6d5b43;   /* 補足・メタ情報 */
+  --line: #d3ba95;       /* 罫線（紙の上では薄く、コルクの上では枠として効く） */
+  --line-soft: #e8ddc4;  /* 紙の中の細い区切り */
 
   /* 意味を持つ色 */
-  --accent: #2f5372;     /* リンク・操作 */
-  --accent-soft: #e6ebf1;
-  --good: #3a6b4f;       /* 済み・完了 */
-  --warn: #8a5a1c;       /* 注意 */
-  --crit: #9c3b30;       /* 未回答・重い指摘 */
+  --accent: #2f6b8f;     /* リンク・操作 */
+  --accent-soft: #e2eef5;
+  --good: #4a7c3f;       /* 済み・完了 */
+  --warn: #96631a;       /* 注意（紙の面で本文のコントラストが取れる濃さ） */
+  --crit: #c04a2f;       /* 未回答・重い指摘 */
+
+  /* テープ（留める装飾）。半透明にして下の紙・コルクを透かす */
+  --tape: rgb(240 222 130 / .78);        /* 既定（山吹） */
+  --tape-edge: rgb(196 174 88 / .55);    /* テープの切り口 */
+  --tape-open: rgb(240 158 118 / .82);   /* 未回答 */
+  --tape-new: rgb(150 203 232 / .82);    /* 新着 */
+  --tape-done: rgb(172 208 150 / .82);   /* 完了 */
+
+  /* 浮かせ方。コルクに留めた紙の落ち影 */
+  --lift: 0 2px 4px rgb(58 38 18 / .22);
+  --lift-hi: 0 5px 12px rgb(58 38 18 / .3);
+  --lift-sheet: 0 4px 14px rgb(58 38 18 / .26);
+  --lift-in: 0 1px 2px rgb(58 38 18 / .1);   /* 紙の中に置いた箱の浅い影 */
 
   /* 書体 */
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;

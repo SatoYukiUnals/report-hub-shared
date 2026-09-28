@@ -5,6 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>実施結果：休暇申請の承認フロー多段化（2026-08-05）</title>
 <link rel="stylesheet" href="/assets/report.css">
+<!-- WBS タスクに紐付けるときだけ書く（プロジェクト名/番号）。紐付けないなら空のままでよい（消してもよい） -->
+<meta name="wbs" content="">
+<!-- 画面・スタイル・リンク・入力の挙動を直したら yes、触っていなければ no。yes のときは
+     本文に figure.shot か video を必ず置く（check-reports.py が申告と現物の有無を見る） -->
+<meta name="ui-change" content="">
+<!--
+  ⚠ この雛形は使わない。レポートはすべてスライド（templates/slide.html）で出す。
+  これは過去に出した縦スクロールのレポートを読むために残してあるだけ。
+  複製すると python3 bin/check-reports.py <ファイル> が弾く。
+-->
 <!--
   使い方: 実装・作業が完了した後に、実施内容・確かめ方・修正内容・残課題をまとめて報告するときに使う。
   複製して reports/<プロジェクト>/<日付>_<名前>.html にリネームし、中身を実情に合わせて書き換える。
@@ -75,9 +85,9 @@
     <h2>画面</h2>
     <!-- 画面に触る変更なら必ず入れる。直した画面ごとに 1 枚、操作の流れは動画で 1 本。
          図の下の説明は「何の画面の、どこを見てほしいか」を 1 行で書く。長い説明は修正内容の側へ。
-         2 枚並べて見比べさせたいとき（直す前と後・狭い画面と広い画面）は div.shots.two を使う。 -->
+         横に 2 枚並べない（1 枚が小さくなって見づらい）。見比べさせたいときも div.shots に figure を 2 つ入れて上下に並べる。 -->
 
-    <div class="shots two">
+    <div class="shots">
       <figure class="shot">
         <img src="/r/kintai-doc/media/2026-08-05_approval-list.png" alt="申請一覧の承認段階列">
         <figcaption>申請一覧。承認段階の列が増え、いまどちらの承認待ちかが分かる。</figcaption>

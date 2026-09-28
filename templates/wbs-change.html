@@ -6,6 +6,11 @@
 <title>WBS 更新の承認</title>
 <link rel="stylesheet" href="/assets/report.css">
 <!--
+  ⚠ この雛形は使わない。レポートはすべてスライド（templates/slide.html）で出す。
+  これは過去に出した縦スクロールのレポートを読むために残してあるだけ。
+  複製すると python3 bin/check-reports.py <ファイル> が弾く。
+-->
+<!--
   使い方: wbs-ops で WBS を更新（ステータス変更・日付変更・担当変更・削除）する前に、内容を承認してもらうときに使う。
   複製先: reports/<プロジェクト>/<日付>_<名前>.html
   書き換え箇所: ヘッダのエンドポイント・件数・取得時刻／更新の一覧／削除を伴う場合の子孫件数／全体承認フォーム。
@@ -19,7 +24,7 @@
 <div class="wrap">
   <p class="back"><a href="./">← レポート一覧</a></p>
   <header>
-    <p class="eyebrow">WBS 更新の承認 ／ 対象: 受発注さん・WBS管理ソフト開発 ／ 取得 2026-08-05 14:30</p>
+    <p class="eyebrow">WBS 更新の承認 ／ 対象: 製品 X・製品 Z ／ 取得 2026-08-05 14:30</p>
     <h1>3件の更新を実行してよいか確認する</h1>
     <p class="lede">
       wbs-ops で PATCH /agent/tasks/&lt;id&gt;/ を計3件呼ぶ前の承認。
@@ -37,7 +42,7 @@
         <tbody>
           <tr><td class="num">1.10.5</td><td>TMRV</td><td>status</td><td><span class="was">InProgress</span></td><td><span class="now">Done</span></td></tr>
           <tr><td class="num">1.13.5</td><td>TMRV</td><td>予定日</td><td><span class="was">2026-07-13〜07-13</span></td><td><span class="now">2026-08-06〜08-07</span></td></tr>
-          <tr><td class="num">2.4</td><td>WbsEdit保存の一括更新API化</td><td>担当</td><td><span class="was">（なし）</span></td><td><span class="now">佐藤優樹</span></td></tr>
+          <tr><td class="num">2.4</td><td>編集画面の保存の一括更新API化</td><td>担当</td><td><span class="was">（なし）</span></td><td><span class="now">担当 A</span></td></tr>
         </tbody>
       </table>
     </div>
@@ -56,8 +61,8 @@
       <textarea name="note" placeholder="補足（任意）"></textarea>
     </div>
 
-    <div class="qa inline" data-qa-id="change-3" data-question="2.4 の担当を（なし）→佐藤優樹に変更するか">
-      <b>2.4 担当 → 佐藤優樹</b>
+    <div class="qa inline" data-qa-id="change-3" data-question="2.4 の担当を（なし）→担当 A に変更するか">
+      <b>2.4 担当 → 担当 A</b>
       <label><input type="radio" name="choice" value="実行する">実行する</label>
       <label><input type="radio" name="choice" value="除外する">除外する</label>
       <textarea name="note" placeholder="補足（任意）"></textarea>

@@ -8,9 +8,9 @@ AI が出した調査結果・作業計画・実施結果の HTML をブラウ�
 置き場所はプロジェクトの外（本ディレクトリ）。複数プロジェクトを横断して使う。
 
   reports/
-    wbs_site/2026-08-05_main-commits.html
-    wbs_site/2026-08-05_main-commits.answers.json   ← 回答（このサーバーが書く）
-    ordering_ops/...
+    example/2026-08-05_main-commits.html
+    example/2026-08-05_main-commits.answers.json   ← 回答（このサーバーが書く）
+    other_project/...
 
 一覧では、各レポートに未回答の設問がいくつ残っているか、前回開いたあとに
 更新されたか（新着）を出す。開いた時刻は reports/.read.json に記録する。
@@ -22,6 +22,7 @@ URL:
   GET  /t/<名前>.html                      テンプレート（複製して使う雛形）
   GET  /r/<プロジェクト>/media/<ファイル>    レポートに貼る画面・動画
   GET  /assets/<ファイル>                   共通の css / js
+  GET  /favicon.ico                        タブのアイコン（一覧と同じ favicon-reports.svg）
   GET  /api/answers/<プロジェクト>/<名前>   回答の取得（再読み込み時の復元用・AI もここから読む）
   POST /api/answers/<プロジェクト>/<名前>   回答の保存（同じ設問は上書き）
 
@@ -30,6 +31,7 @@ URL:
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import html
 import json
@@ -38,14 +40,7 @@ import re
 from datetime import date, datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path, PurePosixPath
-from urllib.parse import parse_qs, quote, unquote, urlparse
-
-# 技術フィード（feedlib.py）。並行して作られているため、無い／壊れていても
-# 一覧・レポート機能は止めたくない。import できなければフィード関連だけ 503 にする。
-try:
-    import feedlib
-except Exception:  # noqa: BLE001（何が起きても既存機能は落とさない）
-    feedlib = None
+from urllib.parse import quote, unquote
 
 # 成果物ビューア（mdlib.py）。同じ考え方で、無くても他の機能は動かす
 try:
@@ -131,15 +126,6 @@ DOC_TYPES = {
     ".svg": "image/svg+xml",
     ".drawio": "text/plain; charset=utf-8",
 }
-
-# 技術フィードの group ごとの表示名・並び（フロント担当と合意済みの固定リスト）
-FEED_GROUPS = [
-    ("official", "Anthropic 公式"),
-    ("jp", "国内"),
-    ("community", "海外"),
-    ("github", "リリース"),
-]
-
 
 def _safe_media_path(project: str, filename: str) -> Path | None:
     """レポートに貼る画面・動画の実ファイルのパスを組む。危うい名前・扱わない拡張子は None。"""
@@ -229,38 +215,6 @@ def _age(mtime: float, today: date) -> tuple[int, str]:
     if days < 7:
         return days, f"{days}日前"
     return days, datetime.fromtimestamp(mtime).strftime("%m/%d")
-
-
-def _parse_iso(text: str) -> datetime | None:
-    """ISO 8601 の日時文字列を datetime に。壊れていれば None。"""
-    if not text:
-        return None
-    try:
-        return datetime.fromisoformat(text.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-
-
-def _feed_when(text: str) -> tuple[str, str]:
-    """フィード記事の日時表示。相対表記（当日は分・時間、それ以降は日）と、
-    title 属性用の絶対表記（YYYY-MM-DD HH:MM）を返す。壊れた日時は空にする。
-    """
-    dt = _parse_iso(text)
-    if dt is None:
-        return "", ""
-    now = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.now()
-    secs = (now - dt).total_seconds()
-    if secs < 60:
-        rel = "たった今"
-    elif secs < 3600:
-        rel = f"{int(secs // 60)}分前"
-    elif secs < 86400:
-        rel = f"{int(secs // 3600)}時間前"
-    elif secs < 86400 * 7:
-        rel = f"{int(secs // 86400)}日前"
-    else:
-        rel = dt.strftime("%m/%d")
-    return rel, dt.strftime("%Y/%m/%d %H:%M")
 
 
 def _read_state() -> dict[str, float]:
@@ -424,80 +378,6 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, {"signature": _signature()})
             return
 
-        # /feed … 技術フィードのページ本体
-        if parts == ["feed"]:
-            if feedlib is None:
-                self._send_text(503, "技術フィードは準備中です")
-                return
-            self._send_html(200, self._render_feed())
-            return
-
-        # /feed/taste … 評価の傾向を見るページ
-        if parts == ["feed", "taste"]:
-            if feedlib is None:
-                self._send_text(503, "技術フィードは準備中です")
-                return
-            try:
-                overview = feedlib.taste_overview()
-            except Exception as exc:  # noqa: BLE001（フィード側の不具合で全体を落とさない）
-                self._send_text(503, f"傾向の取得に失敗しました: {exc}")
-                return
-            self._send_html(200, self._render_taste(overview))
-            return
-
-        # /api/feed/signature ・ /api/feed/status
-        if parts[:2] == ["api", "feed"] and len(parts) == 3 and parts[2] in ("signature", "status"):
-            if feedlib is None:
-                self._send_json(503, {"detail": "技術フィードは準備中です"})
-                return
-            if parts[2] == "signature":
-                self._send_json(200, {"signature": feedlib.signature()})
-            else:
-                self._send_json(200, feedlib.status())
-            return
-
-        # /api/feed/excluded … 不要にした語の一覧
-        if parts == ["api", "feed", "excluded"]:
-            if feedlib is None:
-                self._send_json(503, {"detail": "技術フィードは準備中です"})
-                return
-            try:
-                words = feedlib.excluded_words()
-            except Exception as exc:  # noqa: BLE001（フィード側の不具合で全体を落とさない）
-                self._send_json(503, {"detail": str(exc)})
-                return
-            self._send_json(200, {"words": words})
-            return
-
-        # /api/feed/item/<item_id> … 記事の中身（ダイアログ用）。既定では本文を含めない
-        if parts[:3] == ["api", "feed", "item"] and len(parts) == 4:
-            if feedlib is None:
-                self._send_json(503, {"ok": False, "error": "技術フィードは準備中です"})
-                return
-            item_id = parts[3]
-            if not SAFE_NAME.match(item_id):
-                self._send_json(404, {"ok": False, "error": "記事がありません"})
-                return
-            try:
-                detail = feedlib.item_detail(item_id)
-            except Exception as exc:  # noqa: BLE001（フィード側の不具合で全体を落とさない）
-                self._send_json(503, {"ok": False, "error": str(exc)})
-                return
-            if not detail:
-                self._send_json(404, {"ok": False, "error": "記事がありません"})
-                return
-            detail = dict(detail)
-            body = str(detail.get("body") or "")
-            query = parse_qs(urlparse(self.path).query)
-            include_body = query.get("body", ["0"])[0] == "1"
-            if include_body:
-                detail["body"] = body
-            else:
-                detail["body"] = ""
-                detail["body_len"] = len(body)
-            self._send_json(200, detail)
-            return
-
         # /r/<project>/ … レポートの「← レポート一覧」。一覧のそのプロジェクトの位置へ戻す
         # （完了ぶんは /r/<project>/done/<名前>.html なので、そこからの "./" も同じ扱い）
         if parts[:1] == ["r"] and path.endswith("/") and len(parts) <= 3:
@@ -575,10 +455,6 @@ class Handler(BaseHTTPRequestHandler):
         path = unquote(self.path.split("?", 1)[0])
         parts = [p for p in path.split("/") if p]
 
-        if parts[:2] == ["api", "feed"]:
-            self._handle_feed_post(parts)
-            return
-
         if parts[:2] != ["api", "answers"]:
             self._send_json(404, {"detail": "見つかりません"})
             return
@@ -622,522 +498,33 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(400, {"detail": "qa_id が必要です"})
             return
 
-        answers = self._read_answers(answers_path)
-        # 同じ設問への回答は最新の 1 件だけ残す（言い直しができるように）
-        replaced = {e["qa_id"] for e in saved}
-        answers = [a for a in answers if a.get("qa_id") not in replaced]
-        answers.extend(saved)
-
+        # 読む→混ぜる→書くの間、ファイルそのものを排他ロックする（初回は空ファイルを
+        # 先に作ってからロックを取る）。同時に届いた回答が互いを踏み潰さないようにするため。
         answers_path.parent.mkdir(parents=True, exist_ok=True)
-        answers_path.write_text(json.dumps(answers, ensure_ascii=False, indent=2) + "\n", "utf-8")
-        self._send_json(200, {"saved": saved, "count": len(answers)})
-
-    # -------------------------------------------------------------- 技術フィード
-    def _handle_feed_post(self, parts: list[str]) -> None:
-        """/api/feed/refresh・read・pin。既存の /api/answers と同じ作法で読む。"""
-        if feedlib is None:
-            self._send_json(503, {"ok": False, "error": "技術フィードは準備中です"})
-            return
-        if len(parts) != 3 or parts[2] not in ("refresh", "read", "pin", "rate", "rate-note", "excluded", "body"):
-            self._send_json(404, {"ok": False, "error": "見つかりません"})
-            return
-
-        action = parts[2]
-        if action == "refresh":
-            length = int(self.headers.get("Content-Length") or 0)
-            if length:
-                self.rfile.read(length)
-            self._send_json(200, feedlib.start_refresh())
-            return
-
-        try:
-            length = int(self.headers.get("Content-Length") or 0)
-            payload = json.loads(self.rfile.read(length) or b"{}")
-        except (ValueError, TypeError):
-            self._send_json(400, {"ok": False, "error": "本文が JSON ではありません"})
-            return
-        if not isinstance(payload, dict):
-            self._send_json(400, {"ok": False, "error": "本文が JSON ではありません"})
-            return
-
-        try:
-            if action == "read":
-                item_id = str(payload.get("id") or "").strip()
-                if not item_id:
-                    self._send_json(400, {"ok": False, "error": "id が必要です"})
-                    return
-                ok = feedlib.set_read(item_id, bool(payload.get("read")))
-                self._send_json(200, {"ok": bool(ok)})
-                return
-            if action == "pin":
-                item_id = str(payload.get("id") or "").strip()
-                if not item_id:
-                    self._send_json(400, {"ok": False, "error": "id が必要です"})
-                    return
-                ok = feedlib.set_pinned(item_id, bool(payload.get("pinned")))
-                self._send_json(200, {"ok": bool(ok)})
-                return
-            if action == "rate":
-                item_id = str(payload.get("id") or "").strip()
-                if not item_id:
-                    self._send_json(400, {"ok": False, "error": "id が必要です"})
-                    return
-                value = payload.get("value")
-                if value not in (1, -1, 0):
-                    self._send_json(400, {"ok": False, "error": "value は 1 / -1 / 0 のいずれかです"})
-                    return
-                note = str(payload.get("note") or "")
-                ok = feedlib.set_rating(item_id, value, note)
-                self._send_json(200, {"ok": bool(ok)})
-                return
-            if action == "rate-note":
-                item_id = str(payload.get("id") or "").strip()
-                if not item_id:
-                    self._send_json(400, {"ok": False, "error": "id が必要です"})
-                    return
-                note = str(payload.get("note") or "")
-                ok = feedlib.set_rating_note(item_id, note)
-                self._send_json(200, {"ok": bool(ok)})
-                return
-            if action == "body":
-                item_id = str(payload.get("id") or "").strip()
-                if not item_id:
-                    self._send_json(400, {"ok": False, "error": "id が必要です"})
-                    return
-                result = feedlib.fetch_body(item_id)
-                self._send_json(200, result)
-                return
-            if action == "excluded":
-                word = str(payload.get("word") or "").strip()
-                if not word:
-                    self._send_json(400, {"ok": False, "error": "word が必要です"})
-                    return
-                act = payload.get("action")
-                if act == "add":
-                    result = feedlib.add_excluded_word(word)
-                    self._send_json(200, {"ok": True, **result})
-                    return
-                if act == "remove":
-                    result = feedlib.remove_excluded_word(word)
-                    self._send_json(200, {"ok": True, **result})
-                    return
-                self._send_json(400, {"ok": False, "error": "action は add / remove のいずれかです"})
-                return
-            self._send_json(404, {"ok": False, "error": "見つかりません"})
-        except Exception as exc:  # noqa: BLE001（フィード側の不具合で全体を落とさない）
-            self._send_json(400, {"ok": False, "error": str(exc)})
-
-    def _render_feed(self) -> str:
-        """技術フィードのページ本体。SSR で初期表示ぶんを組み立てる。"""
-        items = feedlib.load_items()
-        state = feedlib.load_state()
-        status = feedlib.status()
-        read_map = state.get("read") if isinstance(state.get("read"), dict) else {}
-        pinned_map = state.get("pinned") if isinstance(state.get("pinned"), dict) else {}
-
-        # 並びは新着順だけで決める。既読・あとで読むで順番を変えない（絞り込みで見分ける）。
-        def sort_key(item: dict) -> float:
-            dt = _parse_iso(item.get("published_at", ""))
-            return -(dt.timestamp() if dt else 0.0)
-
-        ordered = sorted(items, key=sort_key)
-
-        last_fetched = _parse_iso(status.get("last_fetched_at") or "")
-        last_fetched_label = last_fetched.strftime("%Y/%m/%d %H:%M") if last_fetched else "まだ"
-        meta = (
-            f"最終取得 {last_fetched_label} ／ 未読 {status.get('unread', 0)}"
-            f" ／ 要約待ち {status.get('pending_summary', 0)} ／ いいね {status.get('liked', 0)}"
-        )
-        pending_digest = status.get("pending_digest", 0)
-        if pending_digest:
-            meta += f" ／ 読みどころ待ち {pending_digest}"
-        if status.get("last_error"):
-            meta += "／ 前回の取得にエラーあり"
-
-        try:
-            rated_map = state.get("rated") if isinstance(state.get("rated"), dict) else {}
-        except Exception:  # noqa: BLE001
-            rated_map = {}
-
-        items_html = "".join(self._feed_item(item, read_map, pinned_map, rated_map) for item in ordered)
-
-        tabs = (
-            '<div class="tabs">'
-            f'<button class="tab" data-tab="unread">未読 <span class="n">{status.get("unread", 0)}</span></button>'
-            f'<button class="tab" data-tab="pinned">あとで読む <span class="n">{status.get("pinned", 0)}</span></button>'
-            f'<button class="tab" data-tab="liked">いいね <span class="n">{status.get("liked", 0)}</span></button>'
-            f'<button class="tab is-on" data-tab="all">すべて <span class="n">{status.get("total", 0)}</span></button>'
-            "</div>"
-        )
-        groups = (
-            '<div class="groups"><button class="group is-on" data-group="all">全部</button>'
-            + "".join(
-                f'<button class="group" data-group="{gid}">{html.escape(label)}</button>'
-                for gid, label in FEED_GROUPS
-            )
-            + "</div>"
-        )
-
-        try:
-            roles = feedlib.load_roles()
-        except Exception:  # noqa: BLE001
-            roles = []
-        role_counts: dict[str, int] = {}
-        for item in items:
-            item_roles = item.get("roles", [])
-            if not isinstance(item_roles, list):
-                continue
-            for r in item_roles:
-                key = str(r)
-                role_counts[key] = role_counts.get(key, 0) + 1
-        def _role_button(r: dict) -> str:
-            rid = str(r.get("id") or "")
-            label = str(r.get("label") or "")
-            n = role_counts.get(rid, 0)
-            disabled = " disabled" if n == 0 else ""
-            return (
-                f'<button class="role" data-role="{html.escape(rid)}"{disabled}>'
-                f'{html.escape(label)} <span class="n">{n}</span></button>'
-            )
-
-        role_buttons_parts: list[str] = []
-        seen_topic = False
-        for r in roles:
-            if not isinstance(r, dict):
-                continue
-            kind = str(r.get("kind") or "role")
-            if kind == "topic" and not seen_topic:
-                seen_topic = True
-                role_buttons_parts.append('<span class="role-sep" aria-hidden="true"></span>')
-            role_buttons_parts.append(_role_button(r))
-
-        roles_html = (
-            '<div class="roles">'
-            f'<button class="role is-on" data-role="all">全部 <span class="n">{len(items)}</span></button>'
-            + "".join(role_buttons_parts)
-            + "</div>"
-        )
-
-        try:
-            backlog = feedlib.rating_backlog()
-        except Exception:  # noqa: BLE001
-            backlog = 0
-        nudge_html = (
-            f'<p id="taste-nudge" class="nudge">評価が {backlog} 件たまった。傾向をまとめ直せる。</p>'
-            if backlog >= 10
-            else ""
-        )
-
-        try:
-            words = feedlib.excluded_words()
-        except Exception:  # noqa: BLE001
-            words = []
-        excluded_html = ""
-        if words:
-            word_spans = "".join(
-                f'<span class="word">{html.escape(str(w))}'
-                f'<button class="drop" data-word="{html.escape(str(w))}" aria-label="{html.escape(str(w))} を外す">×</button></span>'
-                for w in words
-            )
-            excluded_html = f'<div class="excluded"><span class="label">不要にした語</span>{word_spans}</div>'
-
-        body = (
-            '<div class="wrap">'
-            '<header class="feed-head"><h1>技術フィード</h1>'
-            '<p class="taste-link"><a href="/feed/taste">傾向を見る</a></p>'
-            f'<p class="meta">{html.escape(meta)}</p>'
-            '<button id="refresh" class="refresh">更新</button>'
-            '<p id="refresh-msg" class="refresh-msg" hidden></p>'
-            + nudge_html
-            + "</header>"
-            '<nav class="filters">'
-            + tabs
-            + groups
-            + roles_html
-            + '<input type="search" id="q" placeholder="絞り込み">'
-            '<button id="exclude-add" class="exclude-add">この語を不要にする</button>'
-            "</nav>"
-            + excluded_html
-            + f'<ul class="items">{items_html}</ul>'
-            '<p class="empty" hidden>該当する記事がない。</p>'
-            "</div>"
-        )
-        return (
-            "<!doctype html><html lang='ja'><head><meta charset='utf-8'>"
-            "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-            "<title>技術フィード</title>"
-            "<link rel='icon' type='image/svg+xml' href='/assets/favicon-feed.svg'>"
-            "<link rel='stylesheet' href='/assets/feed.css'>"
-            "<link rel='stylesheet' href='/assets/nav.css'>"
-            "</head><body class='feed-page has-nav'>"
-            + self._sidenav("feed")
-            + body
-            + "<script src='/assets/feed.js'></script></body></html>"
-        )
-
-    @staticmethod
-    def _feed_item(item: dict, read_map: dict, pinned_map: dict, rated_map: dict | None = None) -> str:
-        """フィード記事 1 件ぶんの <li>。"""
-        item_id = str(item.get("id") or "")
-        is_read = item_id in read_map
-        is_pinned = item_id in pinned_map
-        rated_map = rated_map or {}
-        rating_entry = rated_map.get(item_id) if isinstance(rated_map, dict) else None
-        rating = 0
-        if isinstance(rating_entry, dict):
+        if not answers_path.exists():
+            answers_path.touch()
+        with answers_path.open("r+", encoding="utf-8") as f:
+            fcntl.flock(f, fcntl.LOCK_EX)
             try:
-                rating = int(rating_entry.get("v") or 0)
-            except (TypeError, ValueError):
-                rating = 0
-        roles = item.get("roles", [])
-        if not isinstance(roles, list):
-            roles = []
-        roles_attr = " ".join(str(r) for r in roles)
-        body_status = str(item.get("body_status") or "none")
-        digest_status = str(item.get("digest_status") or "none")
-        group = str(item.get("group") or "")
-        source_label = str(item.get("source_label") or "")
-        title = str(item.get("title") or "")
-        url = str(item.get("url") or "")
-        summary = str(item.get("summary") or "")
-        excerpt = str(item.get("excerpt") or "")
-        summary_status = str(item.get("summary_status") or "")
-        via = str(item.get("via") or "")
-        rel, absolute = _feed_when(str(item.get("published_at") or ""))
-
-        title_html = html.escape(title)
-        if url.startswith("http://") or url.startswith("https://"):
-            title_link = f'<a class="title" href="{html.escape(url)}" target="_blank" rel="noopener">{title_html}</a>'
-        else:
-            title_link = f'<span class="title">{title_html}</span>'
-
-        when_html = f'<span class="when" title="{html.escape(absolute)}">{html.escape(rel)}</span>' if rel else ""
-        summary_html = f'<p class="summary">{html.escape(summary)}</p>' if summary else ""
-        excerpt_html = f'<p class="excerpt">{html.escape(excerpt)}</p>'
-
-        acts = [
-            f'<button class="act read">{"未読に戻す" if is_read else "既読にする"}</button>',
-            f'<button class="act pin">{"あとで読むを外す" if is_pinned else "あとで読む"}</button>',
-            (
-                f'<button class="act like emoji" title="{"いいねを外す" if rating == 1 else "いいね"}"'
-                f' aria-label="{"いいねを外す" if rating == 1 else "いいね"}">👍</button>'
-            ),
-            (
-                f'<button class="act nope emoji" title="{"不要を外す" if rating == -1 else "不要"}"'
-                f' aria-label="{"不要を外す" if rating == -1 else "不要"}">👎</button>'
-            ),
-        ]
-        if summary_status != "done":
-            acts.append('<span class="flag pending">要約待ち</span>')
-        if via == "ai":
-            acts.append('<span class="flag ai">AI が拾った</span>')
-
-        return (
-            f'<li class="item" data-id="{html.escape(item_id)}" data-group="{html.escape(group)}"'
-            f' data-read="{1 if is_read else 0}" data-pinned="{1 if is_pinned else 0}" data-via="{html.escape(via)}"'
-            f' data-rating="{rating}" data-roles="{html.escape(roles_attr)}"'
-            f' data-body="{html.escape(body_status)}" data-digest="{html.escape(digest_status)}">'
-            '<div class="line">'
-            f'<span class="pill {html.escape(group)}">{html.escape(source_label)}</span>'
-            + title_link
-            + when_html
-            + "</div>"
-            + summary_html
-            + excerpt_html
-            + f'<div class="acts">{"".join(acts)}</div>'
-            "</li>"
-        )
-
-    def _render_taste(self, overview: dict) -> str:
-        """/feed/taste の本体。feedlib.taste_overview() の中身を並べるだけ。
-
-        中身が空の節は出さない。全部空なら「まだ評価がない」の 1 行だけにする。
-        """
-
-        def fmt(text: object) -> str:
-            dt = _parse_iso(str(text or ""))
-            return dt.strftime("%Y/%m/%d %H:%M") if dt else ""
-
-        liked = int(overview.get("liked", 0) or 0)
-        disliked = int(overview.get("disliked", 0) or 0)
-        total = int(overview.get("total", 0) or 0)
-        backlog = int(overview.get("rating_backlog", 0) or 0)
-
-        meta = f"いいね {liked} ／ 不要 {disliked} ／ 記事 {total}"
-        if backlog:
-            meta += f" ／ まとめ直してから {backlog} 件の評価"
-
-        sections: list[str] = []
-
-        notes = overview.get("notes") or []
-        if isinstance(notes, list) and notes:
-            stamp = fmt(overview.get("notes_updated_at"))
-            stamp_html = f'<p class="stamp">{html.escape(stamp)} に更新</p>' if stamp else ""
-            items = "".join(f"<li>{html.escape(str(n))}</li>" for n in notes)
-            sections.append(
-                '<section class="taste-block"><h2>好みのメモ</h2>'
-                + stamp_html
-                + f'<ul class="notes">{items}</ul></section>'
-            )
-
-        def tally_table(rows: list) -> str:
-            body = "".join(
-                f'<tr><td>{html.escape(str(r.get("label", "")))}</td>'
-                f'<td class="num good">{int(r.get("like", 0) or 0)}</td>'
-                f'<td class="num bad">{int(r.get("dislike", 0) or 0)}</td></tr>'
-                for r in rows
-                if isinstance(r, dict)
-            )
-            return (
-                '<table class="tally"><thead><tr><th>{}</th><th>いいね</th><th>不要</th></tr></thead>'
-                f"<tbody>{body}</tbody></table>"
-            )
-
-        sources = overview.get("sources") or []
-        if isinstance(sources, list) and sources:
-            sections.append(
-                '<section class="taste-block"><h2>出典ごとの当たり外れ</h2>'
-                + tally_table(sources).format("出典")
-                + "</section>"
-            )
-
-        roles = overview.get("roles") or []
-        if isinstance(roles, list) and roles:
-            sections.append(
-                '<section class="taste-block"><h2>立場ごとの当たり外れ</h2>'
-                + tally_table(roles).format("立場")
-                + "</section>"
-            )
-
-        reasons = overview.get("reasons") or []
-        if isinstance(reasons, list) and reasons:
-            items = "".join(self._taste_reason(r, fmt) for r in reasons if isinstance(r, dict))
-            sections.append(
-                '<section class="taste-block"><h2>不要にした理由</h2>'
-                f'<ul class="reasons">{items}</ul></section>'
-            )
-
-        liked_items = overview.get("liked_items") or []
-        if isinstance(liked_items, list) and liked_items:
-            items = "".join(self._taste_row(it, fmt) for it in liked_items if isinstance(it, dict))
-            sections.append(
-                '<section class="taste-block"><h2>いいねした記事</h2>'
-                f'<ul class="rated">{items}</ul></section>'
-            )
-
-        disliked_items = overview.get("disliked_items") or []
-        no_reason = [
-            it for it in disliked_items if isinstance(it, dict) and not str(it.get("note") or "").strip()
-        ]
-        if no_reason:
-            items = "".join(self._taste_row(it, fmt) for it in no_reason)
-            sections.append(
-                '<section class="taste-block"><h2>不要にした記事（理由なし）</h2>'
-                f'<ul class="rated">{items}</ul></section>'
-            )
-
-        words = overview.get("excluded_words") or []
-        if isinstance(words, list) and words:
-            items = "".join(f"<li>{html.escape(str(w))}</li>" for w in words)
-            sections.append(
-                '<section class="taste-block"><h2>不要にした語</h2>'
-                f'<ul class="words">{items}</ul></section>'
-            )
-
-        retired = overview.get("retired") or []
-        if isinstance(retired, list) and retired:
-            items = "".join(self._taste_retired_row(it, fmt) for it in retired if isinstance(it, dict))
-            sections.append(
-                '<section class="taste-block"><h2>消えた記事に残っている評価</h2>'
-                f'<ul class="rated">{items}</ul></section>'
-            )
-
-        if not sections:
-            sections.append(
-                '<p class="empty">まだ評価がない。技術フィードで 👍 や 👎 を付けると、ここに傾向が出る。</p>'
-            )
-
-        body = (
-            '<div class="wrap">'
-            '<header class="taste-head">'
-            '<p class="back"><a href="/feed">← 技術フィード</a></p>'
-            "<h1>いま分かっている傾向</h1>"
-            f'<p class="meta">{html.escape(meta)}</p>'
-            "</header>"
-            + "".join(sections)
-            + "</div>"
-        )
-        return (
-            "<!doctype html><html lang='ja'><head><meta charset='utf-8'>"
-            "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-            "<title>技術フィードの傾向</title>"
-            "<link rel='icon' type='image/svg+xml' href='/assets/favicon-taste.svg'>"
-            "<link rel='stylesheet' href='/assets/feed.css'>"
-            "<link rel='stylesheet' href='/assets/nav.css'>"
-            "</head><body class='taste-page has-nav'>"
-            + self._sidenav("taste")
-            + body
-            + "</body></html>"
-        )
-
-    @staticmethod
-    def _taste_link(url: str, text_html: str, cls: str = "title") -> str:
-        """URL が http(s) のときだけリンクにする。text_html は呼び出し側で escape 済み。"""
-        if url.startswith("http://") or url.startswith("https://"):
-            return f'<a class="{cls}" href="{html.escape(url)}" target="_blank" rel="noopener">{text_html}</a>'
-        return f'<span class="{cls}">{text_html}</span>'
-
-    @classmethod
-    def _taste_reason(cls, item: dict, fmt) -> str:
-        title = html.escape(str(item.get("title") or ""))
-        url = str(item.get("url") or "")
-        source_label = html.escape(str(item.get("source_label") or ""))
-        when = html.escape(fmt(item.get("at")))
-        from_html = f"{source_label} ／ {when}" if when else source_label
-        note = html.escape(str(item.get("note") or ""))
-        return (
-            '<li class="reason">'
-            + cls._taste_link(url, title)
-            + f'<span class="from">{from_html}</span>'
-            + (f'<p class="note">{note}</p>' if note else "")
-            + "</li>"
-        )
-
-    @classmethod
-    def _taste_row(cls, item: dict, fmt) -> str:
-        title = html.escape(str(item.get("title") or ""))
-        url = str(item.get("url") or "")
-        source_label = html.escape(str(item.get("source_label") or ""))
-        when = html.escape(fmt(item.get("at")))
-        from_html = f"{source_label} ／ {when}" if when else source_label
-        return f'<li class="row">{cls._taste_link(url, title)}<span class="from">{from_html}</span></li>'
-
-    @classmethod
-    def _taste_retired_row(cls, item: dict, fmt) -> str:
-        try:
-            v = int(item.get("v") or 0)
-        except (TypeError, ValueError):
-            v = 0
-        if v == 1:
-            mark = '<span class="mark good">いいね</span>'
-        elif v == -1:
-            mark = '<span class="mark bad">不要</span>'
-        else:
-            mark = ""
-        title = html.escape(str(item.get("title") or ""))
-        url = str(item.get("url") or "")
-        source_label = html.escape(str(item.get("source_id") or ""))
-        when = html.escape(fmt(item.get("at")))
-        from_html = f"{source_label} ／ {when}" if when else source_label
-        note = html.escape(str(item.get("note") or ""))
-        return (
-            '<li class="row">'
-            + mark
-            + cls._taste_link(url, title)
-            + f'<span class="from">{from_html}</span>'
-            + (f'<p class="note">{note}</p>' if note else "")
-            + "</li>"
-        )
+                raw = f.read()
+                try:
+                    data = json.loads(raw) if raw.strip() else []
+                except ValueError:
+                    data = []
+                answers = data if isinstance(data, list) else []
+                # 同じ設問への回答は最新の 1 件だけ残す（言い直しができるように）
+                replaced = {e["qa_id"] for e in saved}
+                answers = [a for a in answers if a.get("qa_id") not in replaced]
+                answers.extend(saved)
+                f.seek(0)
+                f.truncate()
+                f.write(json.dumps(answers, ensure_ascii=False, indent=2) + "\n")
+                # ロックを外す前に書き切る。バッファに残したまま外すと、
+                # 実際の書き込みがロックの外へこぼれて互いを踏み潰す
+                f.flush()
+            finally:
+                fcntl.flock(f, fcntl.LOCK_UN)
+        self._send_json(200, {"saved": saved, "count": len(answers)})
 
     # -------------------------------------------------------- 成果物ビューア
     def _handle_doc(self, project: str, rel: str, is_dir_url: bool) -> None:
@@ -1266,10 +653,19 @@ class Handler(BaseHTTPRequestHandler):
 
     @staticmethod
     def _read_answers(path: Path) -> list[dict]:
+        """回答 JSON を読む。共有ロックで、書き込み中の中途半端な内容を読まないようにする。
+
+        壊れている・存在しないときは例外を投げず空配列を返す（既存の挙動のまま）。
+        """
         if not path.is_file():
             return []
         try:
-            data = json.loads(path.read_text("utf-8"))
+            with path.open("r", encoding="utf-8") as f:
+                fcntl.flock(f, fcntl.LOCK_SH)
+                try:
+                    data = json.loads(f.read())
+                finally:
+                    fcntl.flock(f, fcntl.LOCK_UN)
         except (ValueError, OSError):
             return []
         return data if isinstance(data, list) else []
@@ -1322,11 +718,7 @@ class Handler(BaseHTTPRequestHandler):
 
     @staticmethod
     def _sidenav(active: str) -> str:
-        """3 画面（/・/feed・/feed/taste）共通の左サイドバー。
-
-        feedlib が import できないときはフィード系の項目を出さない
-        （既存のフィード系ルートと同じ考え方）。
-        """
+        """一覧・成果物ビューア共通の左サイドバー。"""
         try:
             open_total = sum(
                 row["open"] for project in _list_reports() for row in project["rows"]
@@ -1342,21 +734,6 @@ class Handler(BaseHTTPRequestHandler):
             items.append(
                 f'<li><a class="nav-item{" is-here" if active == "docs" else ""}" href="/d/">'
                 "成果物</a></li>"
-            )
-        if feedlib is not None:
-            try:
-                unread = feedlib.status().get("unread", 0)
-            except Exception:  # noqa: BLE001
-                unread = 0
-            feed_badge = f' <span class="n">{unread}</span>' if unread else ""
-            items.append(
-                f'<li><a class="nav-item{" is-here" if active == "feed" else ""}" href="/feed">'
-                f"技術フィード{feed_badge}</a></li>"
-            )
-            items.append(
-                '<li><a class="nav-item'
-                + (" is-here" if active == "taste" else "")
-                + '" href="/feed/taste">傾向</a></li>'
             )
         return (
             '<nav class="sidenav"><p class="brand"><a href="/">report-hub</a></p>'
@@ -1469,20 +846,10 @@ class Handler(BaseHTTPRequestHandler):
             + "</main>"
         )
 
-        feed_link = ""
-        if feedlib is not None:
-            try:
-                unread = feedlib.status().get("unread", 0)
-            except Exception:  # noqa: BLE001（フィード側の不具合で一覧を落とさない）
-                unread = 0
-            badge = f" <code>{unread}</code>" if unread else ""
-            feed_link = f'<p class="lede"><a href="/feed">技術フィード{badge}</a></p>'
-
         return self._page(
             "レポート一覧",
             "<header><h1>レポート</h1>"
-            + feed_link
-            + "<p class='lede'>答え待ちのものが上に来る。開いて確認事項に回答すると、"
+            "<p class='lede'>答え待ちのものが上に来る。開いて確認事項に回答すると、"
             "同じ場所の <code>.answers.json</code> に保存される。</p></header>"
             f'<div class="inbox">{side}{stream}</div>',
         )

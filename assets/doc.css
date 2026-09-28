@@ -5,34 +5,61 @@
  */
 @import "/assets/tokens.css";
 
-/* レポートへ埋め込むとき（?bare=1）。枠の中なので余白と囲みを外す */
+/* レポートへ埋め込むとき（?bare=1）。枠の中なので余白・囲み・テープを外す */
 body.is-bare .wrap { padding: 0; max-width: none; }
-body.is-bare .doc { border: 0; border-radius: 0; padding: 1.25rem clamp(1rem, 3vw, 2rem) 2rem; }
-
-/* ------------------------------------------------------------ 道すじ・一覧 */
-.crumb {
-  margin: 0 0 .25rem; font-size: .8rem; color: var(--ink-soft);
+body.is-bare .doc {
+  border: 0; border-radius: 0; box-shadow: none;
+  padding: 1.25rem clamp(1rem, 3vw, 2rem) 2rem;
 }
-.crumb a { color: var(--ink-soft); }
+body.is-bare .doc::before, body.is-bare .doc::after { content: none; }
+
+/* ------------------------------------------------------------ 道すじ・一覧
+ * body（/assets/index.css）がコルクの地なので、直に乗る文字は ink を使う。 */
+.crumb {
+  margin: 0 0 .25rem; font-size: .8rem; color: var(--ink);
+}
+.crumb a { color: var(--ink); }
 .crumb a:hover { color: var(--accent); text-decoration: underline; }
 .crumb span { color: var(--ink); }
 
-.doclist { list-style: none; margin: 0; padding: 0; }
+/* 一覧は 1 件 ＝ コルクに留めた紙片（レポート一覧の .row と同じ作り）。
+ * コルクに文字を直に置くと沈むので、必ず紙の面に乗せる。 */
+.doclist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .4rem; max-width: 40rem; }
 .doclist li {
-  border-bottom: 1px solid var(--line);
+  background: var(--card); border: 1px solid var(--line); border-radius: 2px;
+  box-shadow: var(--lift);
 }
 .doclist li a {
-  display: block; padding: .6rem .2rem; font-size: .95rem;
+  display: block; padding: .55rem .8rem; font-size: .95rem;
 }
+.doclist li:hover { box-shadow: var(--lift-hi); }
 .doclist li a:hover { background: var(--accent-soft); }
 .doclist li.dir a { font-weight: 600; }
-.empty { color: var(--ink-soft); font-size: .9rem; }
+.empty { color: var(--ink); font-size: .9rem; }
 
-/* ------------------------------------------------------------ 本文 */
+/* ------------------------------------------------------------ 本文
+ * report.css の .wrap と同じ見立て：コルクに留めた 1 枚の紙。
+ * 上端を 2 枚のテープで留め、紙の落ち影（--lift-sheet）で浮かせる。 */
 .doc {
-  background: var(--card); border: 1px solid var(--line); border-radius: 6px;
+  position: relative;
+  background: var(--card); border: 1px solid var(--line); border-radius: 2px;
+  box-shadow: var(--lift-sheet);
   padding: clamp(1.25rem, 4vw, 2.5rem);
   max-width: 62rem;
+}
+.doc::before, .doc::after {
+  content: ""; position: absolute; top: -.55rem; z-index: 1;
+  width: 4.4rem; height: 1rem;
+  background: var(--tape);
+  border-left: 1px solid var(--tape-edge); border-right: 1px solid var(--tape-edge);
+  box-shadow: 0 1px 3px rgb(58 38 18 / .2);
+}
+.doc::before { left: 2rem; transform: rotate(-1.6deg); }
+.doc::after { right: 2rem; transform: rotate(1.4deg); }
+/* 狭い画面ではテープを内側に寄せる（紙の端からはみ出させない） */
+@media (max-width: 40rem) {
+  .doc::before { left: 1rem; }
+  .doc::after { right: 1rem; }
 }
 .doc > :first-child { margin-top: 0; }
 
@@ -70,7 +97,7 @@ body.is-bare .doc { border: 0; border-radius: 0; padding: 1.25rem clamp(1rem, 3v
   border: 1px solid var(--line); padding: .45rem .7rem; vertical-align: top;
 }
 .doc th { background: var(--sunk); font-weight: 600; white-space: nowrap; }
-.doc tbody tr:nth-child(even) { background: rgba(0, 0, 0, .015); }
+.doc tbody tr:nth-child(even) { background: rgb(58 38 18 / .035); }
 
 .doc pre {
   overflow-x: auto; background: var(--sunk); border: 1px solid var(--line);

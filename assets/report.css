@@ -7,6 +7,12 @@
  *   4. バッジ（状態を色と形で示す）
  *   5. 確認事項フォーム（form.qa／assets/answers.js が使う）
  *   6. 差分・指摘・懸念点の様式
+ *
+ * 見立て：コルクボードに留めた 1 枚の紙（tokens.css）。
+ * レポート本体（.wrap）が紙そのもので、上端をテープで留めてある。
+ * 紙の中の箱（箇条書き・.card・.item・.change）は、その紙にさらに貼ったメモとして扱う。
+ * 白い紙＋落ち影＋わずかな傾き＋テープで留め、答える場所（.qa）だけ一段沈めた面にする。
+ * 角丸はコルクに留めた紙が 2px、貼ったメモが 4px（紙より内側を少し丸くする）。
  */
 
 /* ------------------------------------------------------------ 1. 配色 */
@@ -15,16 +21,38 @@
 /* ------------------------------------------------------------ 2. 土台 */
 * { box-sizing: border-box; }
 body {
-  margin: 0; background: var(--paper); color: var(--ink);
+  margin: 0; color: var(--ink);
+  background: var(--paper-texture) var(--paper);
+  background-size: var(--paper-texture-size);
   font-family: var(--body); line-height: 1.8;
 }
 /* 読み物として落ち着く幅に収める。表など横に長いものは .scroll に逃がす。
-   本文（.lede と箇条書き）は読みやすさのため行長をさらに抑える。 */
+   本文（.lede と箇条書き）は読みやすさのため行長をさらに抑える。
+   コルクの地に直接文字を置くと読みにくいので、本体はまるごと 1 枚の紙にする。 */
 .wrap {
-  max-width: 92rem; margin: 0 auto;
+  position: relative;
+  max-width: 92rem; margin: 2.5rem auto 4rem;
+  /* 台紙はわずかに沈めた紙。貼ったメモ（白）との差を出す */
+  background: var(--sunk); border: 1px solid var(--line); border-radius: 2px;
+  box-shadow: var(--lift-sheet);
   padding: 3rem clamp(1.25rem, 4vw, 3.5rem) 5rem;
   display: flex; flex-direction: column; gap: 2.5rem;
 }
+/* 紙の上端を 2 枚のテープで留める */
+.wrap::before, .wrap::after {
+  content: ""; position: absolute; top: -.6rem; z-index: 1;
+  width: 5.5rem; height: 1.15rem;
+  background: var(--tape);
+  border-left: 1px solid var(--tape-edge); border-right: 1px solid var(--tape-edge);
+  box-shadow: 0 1px 3px rgb(58 38 18 / .2);
+}
+.wrap::before { left: 2.5rem; transform: rotate(-1.8deg); }
+.wrap::after { right: 2.5rem; transform: rotate(1.5deg); }
+@media (max-width: 40rem) {
+  .wrap { margin: 1.5rem .6rem 2.5rem; }
+  .wrap::before { left: 1.2rem; } .wrap::after { right: 1.2rem; }
+}
+
 .eyebrow {
   font-size: .72rem; letter-spacing: .16em; text-transform: uppercase;
   color: var(--ink-soft); margin: 0 0 .5rem;
@@ -49,11 +77,41 @@ section {
 section > :not(.qa), section > .qa.inline { grid-column: 1 / -1; }
 p { margin: 0; }
 ul, ol { margin: 0; padding-left: 1.3rem; display: flex; flex-direction: column; gap: .4rem; max-width: 90ch; }
+
+/* 節の中の箇条書きは、紙に貼ったメモとして囲む（「実施した内容」「前回までに決まったこと」など）。
+   囲みたくない箇条書きは .bare を付ける。テープは 3 色を順に回し、貼る位置は左右へ振る。 */
+section > ul, section > ol {
+  position: relative;
+  background: var(--card); border: 1px solid var(--line); border-radius: 4px;
+  box-shadow: var(--lift);
+  padding: 1.2rem 1.3rem 1.1rem 2.5rem; gap: .45rem; max-width: none;
+  rotate: -.25deg;
+}
+section:nth-of-type(even) > ul, section:nth-of-type(even) > ol { rotate: .25deg; }
+section > ul.bare, section > ol.bare {
+  background: none; border: 0; box-shadow: none; padding: 0 0 0 1.3rem;
+}
+section > ul.bare::before, section > ol.bare::before { content: none; }
+section > ul::before, section > ol::before {
+  content: ""; position: absolute; left: 1.6rem; top: -.35rem; z-index: 1;
+  width: 2.8rem; height: .8rem; transform: rotate(-2deg);
+  background: var(--tape);
+  border-left: 1px solid var(--tape-edge); border-right: 1px solid var(--tape-edge);
+  box-shadow: 0 1px 2px rgb(58 38 18 / .15);
+}
+/* 節ごとに貼る位置と色を変える（節の中に箇条書きが 1 つしかないことが多いので、
+   数えるのは箇条書きではなく節そのもの） */
+section:nth-of-type(even) > ul::before, section:nth-of-type(even) > ol::before,
+section > ul:nth-of-type(even)::before, section > ol:nth-of-type(even)::before {
+  left: auto; right: 1.8rem; transform: rotate(1.8deg);
+}
+section:nth-of-type(3n+2) > ul::before, section:nth-of-type(3n+2) > ol::before { background: var(--tape-new); }
+section:nth-of-type(3n+3) > ul::before, section:nth-of-type(3n+3) > ol::before { background: var(--tape-done); }
 a { color: var(--accent); }
-code { font-family: var(--mono); font-size: .85em; background: var(--accent-soft); padding: .1em .35em; border-radius: 3px; }
+code { font-family: var(--mono); font-size: .85em; background: var(--sunk); padding: .1em .35em; border-radius: 3px; }
 pre {
   font-family: var(--mono); font-size: .82rem; line-height: 1.55; margin: 0;
-  background: var(--card); border: 1px solid var(--line); border-radius: 6px;
+  background: var(--sunk); border: 1px solid var(--line-soft); border-radius: 4px;
   padding: .9rem 1rem; overflow-x: auto;
 }
 pre code { background: none; padding: 0; font-size: inherit; }
@@ -62,8 +120,17 @@ pre code { background: none; padding: 0; font-size: inherit; }
 .back { margin: 0 0 .5rem; font-size: .85rem; }
 
 .card {
-  background: var(--card); border: 1px solid var(--line); border-radius: 6px;
-  padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: .6rem;
+  position: relative;
+  background: var(--card); border: 1px solid var(--line); border-radius: 4px;
+  box-shadow: var(--lift);
+  padding: 1.25rem 1.2rem 1.15rem; display: flex; flex-direction: column; gap: .6rem;
+}
+.card::before {
+  content: ""; position: absolute; left: 1.5rem; top: -.35rem; z-index: 1;
+  width: 2.8rem; height: .8rem; transform: rotate(-1.8deg);
+  background: var(--tape);
+  border-left: 1px solid var(--tape-edge); border-right: 1px solid var(--tape-edge);
+  box-shadow: 0 1px 2px rgb(58 38 18 / .15);
 }
 /* 表・コード・図はこの箱に入れて、本文が横に伸びないようにする */
 .scroll { overflow-x: auto; }
@@ -71,10 +138,11 @@ pre code { background: none; padding: 0; font-size: inherit; }
 
 /* ------------------------------------------------------------ 3. 表 */
 table { border-collapse: collapse; width: 100%; font-size: .89rem; min-width: 34rem; }
-th, td { text-align: left; vertical-align: top; padding: .5rem .7rem; border-bottom: 1px solid var(--line); }
+th, td { text-align: left; vertical-align: top; padding: .5rem .7rem; border-bottom: 1px solid var(--line-soft); }
 th {
   font-size: .74rem; letter-spacing: .08em; text-transform: uppercase;
   color: var(--ink-soft); font-weight: 600; white-space: nowrap;
+  border-bottom-color: var(--line);
 }
 tbody tr:last-child td { border-bottom: 0; }
 .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -91,14 +159,14 @@ tbody tr:last-child td { border-bottom: 0; }
 .pill.done { color: var(--good); }
 .pill.warn { color: var(--warn); }
 .pill.quiet { color: var(--ink-soft); border-color: var(--line); }
-/* 指摘の重さ。High=赤・Mid=橙・Low=灰 */
+/* 指摘の重さ。High=朱・Mid=山吹・Low=灰 */
 .pill.high { color: var(--crit); }
 .pill.mid { color: var(--warn); }
 .pill.low { color: var(--ink-soft); border-color: var(--line); }
 
 /* ------------------------------------------------------------ 5. 確認事項 */
 .qa {
-  background: var(--card); border: 1px solid var(--line); border-radius: 6px;
+  background: var(--sunk); border: 1px solid var(--line); border-radius: 4px;
   padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: .5rem; margin: 0;
 }
 .qa h3 { font-size: .98rem; }
@@ -107,13 +175,29 @@ tbody tr:last-child td { border-bottom: 0; }
 .qa label input { margin-top: .45rem; }
 .qa textarea {
   width: 100%; min-height: 3.5rem; font: inherit; font-size: .9rem; padding: .5rem .6rem;
-  border: 1px solid var(--line); border-radius: 4px;
-  background: var(--sunk); color: var(--ink); resize: vertical;
+  border: 1px solid var(--line); border-radius: 3px;
+  background: var(--card); color: var(--ink); resize: vertical;
 }
+/* 台紙に直に置いた確認事項（.item に囲まれていないもの）は、貼ったメモとして白い紙にする
+   （台紙と同じ色だと、どこが 1 件ぶんなのか分からなくなる） */
+section > .qa {
+  position: relative;
+  background: var(--card); box-shadow: var(--lift); padding-top: 1.3rem;
+}
+section > .qa::before {
+  content: ""; position: absolute; left: 1.5rem; top: -.35rem; z-index: 1;
+  width: 2.8rem; height: .8rem; transform: rotate(-2deg);
+  background: var(--tape);
+  border-left: 1px solid var(--tape-edge); border-right: 1px solid var(--tape-edge);
+  box-shadow: 0 1px 2px rgb(58 38 18 / .15);
+}
+section > .qa:nth-of-type(even)::before { left: auto; right: 1.7rem; transform: rotate(1.8deg); }
+section > .qa.inline::before { content: none; }
+section > .qa textarea { background: var(--sunk); }
 .qa button {
   align-self: flex-start; font: inherit; font-size: .9rem; padding: .35rem 1.1rem;
-  border: 1px solid var(--accent); border-radius: 4px;
-  background: var(--accent); color: #fff; cursor: pointer;
+  border: 1px solid var(--accent); border-radius: 3px;
+  background: var(--accent); color: var(--card); cursor: pointer;
 }
 .qa button:hover { filter: brightness(1.08); }
 .qa button:disabled { opacity: .5; cursor: default; }
@@ -127,17 +211,18 @@ tbody tr:last-child td { border-bottom: 0; }
 .qa-bar {
   position: sticky; bottom: 0; z-index: 10;
   display: flex; align-items: center; gap: .9rem; flex-wrap: wrap;
+  /* answers.js が body 直下に置くので、画面の幅いっぱいの帯になる */
   padding: .75rem clamp(1.25rem, 4vw, 3.5rem);
   background: var(--card); border-top: 1px solid var(--line);
-  box-shadow: 0 -2px 12px rgb(0 0 0 / .06);
+  box-shadow: 0 -2px 12px rgb(58 38 18 / .1);
 }
 .qa-bar-count { font-size: .85rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 .qa-bar-count.is-open { color: var(--crit); font-weight: 700; }
 .qa-bar-message { font-size: .85rem; color: var(--good); }
 .qa-bar button {
   margin-left: auto; font: inherit; font-size: .9rem; padding: .4rem 1.4rem;
-  border: 1px solid var(--accent); border-radius: 4px;
-  background: var(--accent); color: #fff; cursor: pointer;
+  border: 1px solid var(--accent); border-radius: 3px;
+  background: var(--accent); color: var(--card); cursor: pointer;
 }
 .qa-bar button:hover { filter: brightness(1.08); }
 .qa-bar button:disabled { opacity: .5; cursor: default; }
@@ -185,12 +270,24 @@ tbody tr:last-child td { border-bottom: 0; }
 .risk.low { border-left-color: var(--line); }
 
 /* --------------------------------------------- 7. 1 件ぶんのかたまり（.item）
- * 指摘・懸念点・調査項目など「1 件」を角丸の枠で囲み、その中に
- * 内容と、それに対する確認事項を入れる。問いと対象が離れないようにする。 */
+ * 指摘・懸念点・調査項目など「1 件」を紙の上に留めた 1 枚として扱い、その中に
+ * 内容と、それに対する確認事項を入れる。問いと対象が離れないようにする。
+ * 上端にテープを貼り、重さのあるものはテープの色を変える。 */
 .item {
-  background: var(--card); border: 1px solid var(--line); border-radius: 10px;
-  padding: 1.15rem 1.25rem; display: flex; flex-direction: column; gap: .7rem;
+  position: relative;
+  background: var(--card); border: 1px solid var(--line); border-radius: 4px;
+  padding: 1.3rem 1.25rem 1.15rem; display: flex; flex-direction: column; gap: .7rem;
+  box-shadow: var(--lift); rotate: -.2deg;
 }
+.item:nth-of-type(even) { rotate: .2deg; }
+.item::before {
+  content: ""; position: absolute; left: 1.4rem; top: -.35rem; z-index: 1;
+  width: 2.8rem; height: .8rem; transform: rotate(-2deg);
+  background: var(--tape);
+  border-left: 1px solid var(--tape-edge); border-right: 1px solid var(--tape-edge);
+  box-shadow: 0 1px 2px rgb(58 38 18 / .15);
+}
+.item:nth-of-type(even)::before { left: auto; right: 1.6rem; transform: rotate(1.7deg); }
 .item > h3 { font-size: 1rem; }
 /* 枠の直下に置いた重さのバッジは、文字幅のまま左に置く（縦並びで伸びないように） */
 .item > .pill { align-self: flex-start; }
@@ -198,13 +295,15 @@ tbody tr:last-child td { border-bottom: 0; }
 .item > .bar { margin-bottom: -.2rem; }
 /* 枠の中の指摘は左の帯を持たない（枠自身が区切りになる） */
 .item > .risk { border-left: 0; padding-left: 0; }
-/* 重さのある項目は枠の左を色で示す */
+/* 重さのある項目は左を色で示し、テープの色も変える */
 .item.high { border-left: 4px solid var(--crit); }
 .item.mid { border-left: 4px solid var(--warn); }
 .item.low { border-left: 4px solid var(--line); }
-/* 枠の中の確認事項。地を一段沈めて、答える場所だと分かるようにする */
+.item.high::before { background: var(--tape-open); }
+.item.low::before { background: var(--tape-done); }
+/* 枠の中の確認事項。地を紙の白に戻して、答える場所だと分かるようにする */
 .item > .qa {
-  background: var(--sunk); border-radius: 6px;
+  background: var(--sunk); border-radius: 4px;
   border: 1px solid var(--line); border-left: 3px solid var(--accent);
 }
 .item > .qa textarea { background: var(--card); }
@@ -213,11 +312,23 @@ tbody tr:last-child td { border-bottom: 0; }
 
 /* --------------------------------------------- 8. 修正内容（.change）
  * 表で 3 列に並べず、対象 1 件を 1 つの枠にする。狭い画面でも崩れない。 */
+/* 修正内容の 1 件も、紙に貼ったメモ（上端をテープで留める） */
 .change {
-  background: var(--card); border: 1px solid var(--line); border-radius: 10px;
-  padding: 1.05rem 1.2rem;
+  position: relative;
+  background: var(--card); border: 1px solid var(--line); border-radius: 4px;
+  padding: 1.3rem 1.2rem 1.1rem;
   display: grid; grid-template-columns: auto 1fr; gap: .4rem .9rem; align-items: baseline;
+  box-shadow: var(--lift); rotate: -.2deg;
 }
+.change:nth-of-type(even) { rotate: .2deg; }
+.change::before {
+  content: ""; position: absolute; left: 1.5rem; top: -.35rem; z-index: 1;
+  width: 2.8rem; height: .8rem; transform: rotate(-2deg);
+  background: var(--tape);
+  border-left: 1px solid var(--tape-edge); border-right: 1px solid var(--tape-edge);
+  box-shadow: 0 1px 2px rgb(58 38 18 / .15);
+}
+.change:nth-of-type(even)::before { left: auto; right: 1.7rem; transform: rotate(1.8deg); }
 .change > h3 { grid-column: 1 / -1; font-size: 1rem; margin-bottom: .1rem; }
 .change .tag {
   font-size: .74rem; letter-spacing: .06em; color: var(--ink-soft); white-space: nowrap;
@@ -237,41 +348,49 @@ tbody tr:last-child td { border-bottom: 0; }
 
 /* --------------------------------------------- 9. 確かめた観点（.aspects）
  * 何を見たかだけを並べる。結果の数字・手順・ログは書かない。 */
-.aspects {
-  display: flex; flex-direction: column; gap: .3rem;
-  list-style: disc; margin: 0; padding-left: 1.3rem; max-width: 90ch;
-}
+.aspects { list-style: disc; }
 
 /* 見出しの脇に件数などを並べる行 */
 .bar { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
 .bar .when { margin-left: auto; color: var(--ink-soft); font-size: .82rem; font-variant-numeric: tabular-nums; }
 
 /* ── 画面・動画（実施結果に貼る現物） ─────────────────────────────
-   figure.shot を 1 件 1 枚として並べる。画像・動画は枠に収め、
-   下に 1 行の説明（figcaption）を置く。狭い画面でも横にはみ出さない。 */
-.shots { display: grid; gap: 1rem; margin: .75rem 0 0; padding: 0; }
-.shots.two { grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); }
-figure.shot { margin: 0; }
+   figure.shot を 1 件 1 枚として並べる。ボードに貼った写真の見立てで、
+   白フチを付けてわずかに傾け、上端をテープで留める。狭い画面でもはみ出さない。 */
+/* 画面写真は必ず 1 列（横に 2 枚並べると 1 枚が小さくなって見づらい）。
+   .shots.two は過去のレポートに残っているので、1 列に潰して受ける。 */
+.shots, .shots.two { display: grid; grid-template-columns: 1fr; gap: 1.8rem; margin: 1rem 0 .5rem; padding: 0; }
+figure.shot { position: relative; margin: 0; }
+figure.shot::before {
+  content: ""; position: absolute; left: 50%; top: -.5rem; z-index: 2;
+  width: 3.6rem; height: 1rem; transform: translateX(-50%) rotate(-2.2deg);
+  background: var(--tape);
+  border-left: 1px solid var(--tape-edge); border-right: 1px solid var(--tape-edge);
+  box-shadow: 0 1px 2px rgb(58 38 18 / .18);
+}
+figure.shot:nth-of-type(even) { rotate: .5deg; }
+figure.shot:nth-of-type(odd) { rotate: -.5deg; }
 figure.shot img,
 figure.shot video {
   display: block;
   width: 100%;
   height: auto;
-  /* 縦長の画面を貼っても本文が画像で埋まらないよう、高さの上限を決めて収める。
-     横幅の違う画面を 2 枚並べたときも、上限で頭が揃う。 */
-  max-height: 30rem;
+  /* 1 列で大きく見せる。縦長の画面を貼ったときだけ本文が埋まらないよう上限で止める
+     （横長の画面はこの上限に当たらないので、左右に余白が出ない）。 */
+  max-height: 44rem;
   object-fit: contain;
   object-position: center top;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--bg);
+  border: 6px solid var(--card);
+  outline: 1px solid var(--line);
+  border-radius: 2px;
+  /* 縦横比の違う画面を貼ったときに出る余白は、写真の白フチと同じ紙色にする */
+  background: var(--card);
+  box-shadow: var(--lift);
 }
-/* 見比べる 2 枚は高さを揃える。縦横比が違う画面同士でも説明の位置がずれない。 */
-.shots.two figure.shot img,
-.shots.two figure.shot video { height: 20rem; }
+/* 見比べたいときは 2 枚を上下に並べる。高さの上限だけ揃っていれば見比べられる。 */
 
 figure.shot figcaption {
-  margin-top: .4rem;
+  margin-top: .5rem;
   font-size: .85rem;
   color: var(--ink-soft);
 }
